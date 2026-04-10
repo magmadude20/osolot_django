@@ -1,6 +1,7 @@
 from ninja import NinjaAPI
 
-from osolot_server.routes import auth_router, users_router
+from .auth_routes import auth_router
+from .user_routes import users_router
 
 api = NinjaAPI(
     title="Osolot API",
@@ -11,3 +12,5 @@ api = NinjaAPI(
 
 api.add_router("/auth", auth_router)
 api.add_router("/users", users_router)
+
+__all__ = ["api"]

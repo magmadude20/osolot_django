@@ -6,17 +6,57 @@
  * OpenAPI spec version: 0.0.1
  */
 import { customInstance } from './axios-instance';
-export type UserUpdateInName = string | null;
+export type UserUpdateInLastName = string | null;
+
+export type UserUpdateInFirstName = string | null;
 
 export interface UserUpdateIn {
-  name?: UserUpdateInName;
+  first_name?: UserUpdateInFirstName;
+  last_name?: UserUpdateInLastName;
 }
 
 export interface UserOut {
   email: string;
+  email_verified: boolean;
+  first_name: string;
   id: number;
-  name: string;
-  username: string;
+  last_name: string;
+}
+
+export interface VerifyEmailConfirmIn {
+  /** @minLength 1 */
+  token: string;
+  /** @minLength 1 */
+  uid: string;
+}
+
+export interface VerifyEmailRequestIn {
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
+  email: string;
+}
+
+export interface PasswordResetConfirmIn {
+  /** @minLength 8 */
+  new_password: string;
+  /** @minLength 1 */
+  token: string;
+  /** @minLength 1 */
+  uid: string;
+}
+
+export interface PasswordResetRequestIn {
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
+  email: string;
+}
+
+export interface MessageOut {
+  message: string;
 }
 
 export interface RefreshIn {
@@ -28,23 +68,26 @@ export interface AccessTokenOut {
 }
 
 export interface LoginIn {
-  password: string;
-  username: string;
-}
-
-export type RegisterInEmail = string | null;
-
-export interface RegisterIn {
-  email?: RegisterInEmail;
-  /** @maxLength 255 */
-  name?: string;
-  /** @minLength 8 */
-  password: string;
   /**
    * @minLength 1
-   * @maxLength 150
+   * @maxLength 254
    */
-  username: string;
+  email: string;
+  password: string;
+}
+
+export interface RegisterIn {
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
+  email: string;
+  /** @maxLength 150 */
+  first_name?: string;
+  /** @maxLength 150 */
+  last_name?: string;
+  /** @minLength 8 */
+  password: string;
 }
 
 export interface TokenPairOut {
@@ -60,7 +103,7 @@ export interface TokenPairOut {
 /**
  * @summary Register
  */
-const osolotServerRoutesRegister = (
+const osolotServerApiAuthRoutesRegister = (
     registerIn: RegisterIn,
  ) => {
       return customInstance<TokenPairOut>(
@@ -74,7 +117,7 @@ const osolotServerRoutesRegister = (
 /**
  * @summary Login
  */
-const osolotServerRoutesLogin = (
+const osolotServerApiAuthRoutesLogin = (
     loginIn: LoginIn,
  ) => {
       return customInstance<TokenPairOut>(
@@ -88,7 +131,7 @@ const osolotServerRoutesLogin = (
 /**
  * @summary Refresh
  */
-const osolotServerRoutesRefresh = (
+const osolotServerApiAuthRoutesRefresh = (
     refreshIn: RefreshIn,
  ) => {
       return customInstance<AccessTokenOut>(
@@ -100,9 +143,65 @@ const osolotServerRoutesRefresh = (
     }
   
 /**
+ * @summary Password Reset Request
+ */
+const osolotServerApiAuthRoutesPasswordResetRequest = (
+    passwordResetRequestIn: PasswordResetRequestIn,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/auth/password-reset/request`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: passwordResetRequestIn
+    },
+      );
+    }
+  
+/**
+ * @summary Password Reset Confirm
+ */
+const osolotServerApiAuthRoutesPasswordResetConfirm = (
+    passwordResetConfirmIn: PasswordResetConfirmIn,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/auth/password-reset/confirm`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: passwordResetConfirmIn
+    },
+      );
+    }
+  
+/**
+ * @summary Email Verification Request
+ */
+const osolotServerApiAuthRoutesEmailVerificationRequest = (
+    verifyEmailRequestIn: VerifyEmailRequestIn,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/auth/verify-email/request`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: verifyEmailRequestIn
+    },
+      );
+    }
+  
+/**
+ * @summary Email Verification Confirm
+ */
+const osolotServerApiAuthRoutesEmailVerificationConfirm = (
+    verifyEmailConfirmIn: VerifyEmailConfirmIn,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/auth/verify-email/confirm`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: verifyEmailConfirmIn
+    },
+      );
+    }
+  
+/**
  * @summary Me
  */
-const osolotServerRoutesMe = (
+const osolotServerApiUserRoutesMe = (
     
  ) => {
       return customInstance<UserOut>(
@@ -114,7 +213,7 @@ const osolotServerRoutesMe = (
 /**
  * @summary Update Me
  */
-const osolotServerRoutesUpdateMe = (
+const osolotServerApiUserRoutesUpdateMe = (
     userUpdateIn: UserUpdateIn,
  ) => {
       return customInstance<UserOut>(
@@ -125,9 +224,13 @@ const osolotServerRoutesUpdateMe = (
       );
     }
   
-return {osolotServerRoutesRegister,osolotServerRoutesLogin,osolotServerRoutesRefresh,osolotServerRoutesMe,osolotServerRoutesUpdateMe}};
-export type OsolotServerRoutesRegisterResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerRoutesRegister']>>>
-export type OsolotServerRoutesLoginResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerRoutesLogin']>>>
-export type OsolotServerRoutesRefreshResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerRoutesRefresh']>>>
-export type OsolotServerRoutesMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerRoutesMe']>>>
-export type OsolotServerRoutesUpdateMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerRoutesUpdateMe']>>>
+return {osolotServerApiAuthRoutesRegister,osolotServerApiAuthRoutesLogin,osolotServerApiAuthRoutesRefresh,osolotServerApiAuthRoutesPasswordResetRequest,osolotServerApiAuthRoutesPasswordResetConfirm,osolotServerApiAuthRoutesEmailVerificationRequest,osolotServerApiAuthRoutesEmailVerificationConfirm,osolotServerApiUserRoutesMe,osolotServerApiUserRoutesUpdateMe}};
+export type OsolotServerApiAuthRoutesRegisterResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesRegister']>>>
+export type OsolotServerApiAuthRoutesLoginResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesLogin']>>>
+export type OsolotServerApiAuthRoutesRefreshResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesRefresh']>>>
+export type OsolotServerApiAuthRoutesPasswordResetRequestResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesPasswordResetRequest']>>>
+export type OsolotServerApiAuthRoutesPasswordResetConfirmResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesPasswordResetConfirm']>>>
+export type OsolotServerApiAuthRoutesEmailVerificationRequestResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesEmailVerificationRequest']>>>
+export type OsolotServerApiAuthRoutesEmailVerificationConfirmResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRoutesEmailVerificationConfirm']>>>
+export type OsolotServerApiUserRoutesMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUserRoutesMe']>>>
+export type OsolotServerApiUserRoutesUpdateMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUserRoutesUpdateMe']>>>

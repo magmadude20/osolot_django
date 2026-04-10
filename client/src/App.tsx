@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./App.css";
 import { clearTokens, getAccessToken, setTokens } from "./api/axios-instance";
 import { getOsolotAPI, type UserOut } from "./api/generated";
@@ -11,15 +12,21 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [loginUser, setLoginUser] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
 
-  const [regUser, setRegUser] = useState("");
   const [regPass, setRegPass] = useState("");
   const [regEmail, setRegEmail] = useState("");
-  const [regName, setRegName] = useState("");
+  const [regFirstName, setRegFirstName] = useState("");
+  const [regLastName, setRegLastName] = useState("");
 
-  const [editName, setEditName] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+
+  const [verificationSending, setVerificationSending] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(
+    null,
+  );
 
   const bootstrap = useCallback(async () => {
     setError(null);
@@ -29,9 +36,10 @@ function App() {
       return;
     }
     try {
-      const me = await api.osolotServerRoutesMe();
+      const me = await api.osolotServerApiUserRoutesMe();
       setUser(me);
-      setEditName(me.name);
+      setEditFirstName(me.first_name);
+      setEditLastName(me.last_name);
     } catch {
       clearTokens();
       setUser(null);
@@ -48,14 +56,14 @@ function App() {
     e.preventDefault();
     setError(null);
     try {
-      const tokens = await api.osolotServerRoutesLogin({
-        username: loginUser,
+      const tokens = await api.osolotServerApiAuthRoutesLogin({
+        email: loginEmail,
         password: loginPass,
       });
       setTokens(tokens.access, tokens.refresh);
       await bootstrap();
     } catch {
-      setError("Login failed. Check username and password.");
+      setError("Login failed. Check email and password.");
     }
   }
 
@@ -63,16 +71,16 @@ function App() {
     e.preventDefault();
     setError(null);
     try {
-      const tokens = await api.osolotServerRoutesRegister({
-        username: regUser,
+      const tokens = await api.osolotServerApiAuthRoutesRegister({
         password: regPass,
-        email: regEmail || null,
-        name: regName,
+        email: regEmail,
+        first_name: regFirstName || undefined,
+        last_name: regLastName || undefined,
       });
       setTokens(tokens.access, tokens.refresh);
       await bootstrap();
     } catch {
-      setError("Registration failed. Username may already exist.");
+      setError("Registration failed. That email may already be registered.");
     }
   }
 
@@ -81,10 +89,30 @@ function App() {
     if (!user) return;
     setError(null);
     try {
-      const updated = await api.osolotServerRoutesUpdateMe({ name: editName });
+      const updated = await api.osolotServerApiUserRoutesUpdateMe({
+        first_name: editFirstName,
+        last_name: editLastName,
+      });
       setUser(updated);
     } catch {
       setError("Could not update profile.");
+    }
+  }
+
+  async function handleSendVerificationEmail() {
+    if (!user?.email) return;
+    setError(null);
+    setVerificationMessage(null);
+    setVerificationSending(true);
+    try {
+      const res = await api.osolotServerApiAuthRoutesEmailVerificationRequest({
+        email: user.email,
+      });
+      setVerificationMessage(res.message);
+    } catch {
+      setError("Could not send verification email.");
+    } finally {
+      setVerificationSending(false);
     }
   }
 
@@ -92,8 +120,9 @@ function App() {
     clearTokens();
     setUser(null);
     setLoading(false);
-    setLoginUser("");
+    setLoginEmail("");
     setLoginPass("");
+    setVerificationMessage(null);
   }
 
   if (loading) {
@@ -120,26 +149,51 @@ function App() {
           <h2>Profile</h2>
           <dl className="kv">
             <div>
-              <dt>Username</dt>
-              <dd>{user.username}</dd>
-            </div>
-            <div>
               <dt>Email</dt>
               <dd>{user.email || "—"}</dd>
             </div>
           </dl>
 
+          <div className="verification-block">
+            {user.email_verified ? (
+              <p className="verification-text verified">your email is verified!</p>
+            ) : (
+              <>
+                <p className="verification-text">email verification needed</p>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={verificationSending}
+                  onClick={() => void handleSendVerificationEmail()}
+                >
+                  {verificationSending ? "Sending…" : "Send verification email"}
+                </button>
+                {verificationMessage ? (
+                  <p className="muted verification-followup">{verificationMessage}</p>
+                ) : null}
+              </>
+            )}
+          </div>
+
           <form onSubmit={handleSaveProfile} className="form">
             <label>
-              Name
+              First name
               <input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                autoComplete="name"
+                value={editFirstName}
+                onChange={(e) => setEditFirstName(e.target.value)}
+                autoComplete="given-name"
+              />
+            </label>
+            <label>
+              Last name
+              <input
+                value={editLastName}
+                onChange={(e) => setEditLastName(e.target.value)}
+                autoComplete="family-name"
               />
             </label>
             <button type="submit" className="btn">
-              Save name
+              Save profile
             </button>
           </form>
         </section>
@@ -181,11 +235,12 @@ function App() {
       {panel === "login" ? (
         <form onSubmit={handleLogin} className="card form">
           <label>
-            Username
+            Email
             <input
-              value={loginUser}
-              onChange={(e) => setLoginUser(e.target.value)}
-              autoComplete="username"
+              type="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </label>
@@ -199,6 +254,11 @@ function App() {
               required
             />
           </label>
+          <p className="form-meta">
+            <Link to="/forgot-password" className="link">
+              Forgot password?
+            </Link>
+          </p>
           <button type="submit" className="btn">
             Log in
           </button>
@@ -206,11 +266,12 @@ function App() {
       ) : (
         <form onSubmit={handleRegister} className="card form">
           <label>
-            Username
+            Email
             <input
-              value={regUser}
-              onChange={(e) => setRegUser(e.target.value)}
-              autoComplete="username"
+              type="email"
+              value={regEmail}
+              onChange={(e) => setRegEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </label>
@@ -226,20 +287,19 @@ function App() {
             />
           </label>
           <label>
-            Email (optional)
+            First name (optional)
             <input
-              type="email"
-              value={regEmail}
-              onChange={(e) => setRegEmail(e.target.value)}
-              autoComplete="email"
+              value={regFirstName}
+              onChange={(e) => setRegFirstName(e.target.value)}
+              autoComplete="given-name"
             />
           </label>
           <label>
-            Name (optional)
+            Last name (optional)
             <input
-              value={regName}
-              onChange={(e) => setRegName(e.target.value)}
-              autoComplete="name"
+              value={regLastName}
+              onChange={(e) => setRegLastName(e.target.value)}
+              autoComplete="family-name"
             />
           </label>
           <button type="submit" className="btn">

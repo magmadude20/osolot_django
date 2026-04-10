@@ -17,12 +17,11 @@ fi
 echo "==> Exporting OpenAPI schema"
 cd "$SERVER"
 "$PY" manage.py export_openapi_schema \
-  --api config.api.api \
+  --api osolot_server.api.api \
   --output "$ROOT/api/openapi.json" \
   --indent 2
 
 echo "==> Applying database migrations"
-"$PY" manage.py makemigrations
 "$PY" manage.py migrate
 
 echo "==> Running Orval (npm run codegen)"

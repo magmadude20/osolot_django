@@ -6,6 +6,6 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    fieldsets = (*DjangoUserAdmin.fieldsets, ("Profile", {"fields": ("name",)}))
-    list_display = ("username", "email", "name", "is_staff")
-    search_fields = ("username", "email", "name")
+    fieldsets = (*DjangoUserAdmin.fieldsets, ("Profile", {"fields": ("email_verified",)}))
+    list_display = ("email", "email_verified", "is_staff")
+    search_fields = ("email", "first_name", "last_name")

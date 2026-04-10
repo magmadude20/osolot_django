@@ -66,33 +66,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-def _database_config() -> dict:
-    backend = os.environ.get("DATABASE_BACKEND", "sqlite").lower()
-    if backend in ("postgres", "postgresql"):
-        cfg: dict = {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ["POSTGRES_DB"],
-            "USER": os.environ.get("POSTGRES_USER", "postgres"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
-            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-        }
-        sslmode = os.environ.get("POSTGRES_SSLMODE")
-        if sslmode:
-            cfg["OPTIONS"] = {"sslmode": sslmode}
-        return cfg
-    return {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-
-
-DATABASES = {"default": _database_config()}
-
 AUTH_USER_MODEL = "osolot_server.User"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -120,3 +99,56 @@ SIMPLE_JWT = {
 _cors = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+
+
+def _database_config() -> dict:
+    backend = os.environ.get("DATABASE_BACKEND", "sqlite").lower()
+    if backend in ("postgres", "postgresql"):
+        cfg: dict = {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["POSTGRES_DB"],
+            "USER": os.environ.get("POSTGRES_USER", "postgres"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
+        sslmode = os.environ.get("POSTGRES_SSLMODE")
+        if sslmode:
+            cfg["OPTIONS"] = {"sslmode": sslmode}
+        return cfg
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+
+
+DATABASES = {"default": _database_config()}
+
+## Email: defaults to console backend in development (emails printed to stdout).
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+
+PASSWORD_RESET_FRONTEND_BASE_URL = os.environ.get(
+    "PASSWORD_RESET_FRONTEND_BASE_URL",
+    "http://localhost:5173",
+)
+
+# Password reset (and email verification) tokens expire after one hour.
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", "3600"))

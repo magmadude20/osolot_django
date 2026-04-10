@@ -49,7 +49,8 @@ axiosApi.interceptors.response.use(
     const url = String(config.url ?? "");
     if (
       url.includes("/api/auth/login") ||
-      url.includes("/api/auth/register")
+      url.includes("/api/auth/register") ||
+      url.includes("/api/auth/password-reset/")
     ) {
       return Promise.reject(error);
     }
