@@ -9,7 +9,8 @@ import CollectivesList from "./pages/CollectivesList.tsx";
 import CollectiveNew from "./pages/CollectiveNew.tsx";
 import CollectiveJoin from "./pages/CollectiveJoin.tsx";
 import CollectiveEdit from "./pages/CollectiveEdit.tsx";
-import CollectiveManageMembers from "./pages/CollectiveManageMembers.tsx";
+import CollectiveManageMembersList from "./pages/CollectiveManageMembersList.tsx";
+import CollectiveManageMember from "./pages/CollectiveManageMember.tsx";
 import CollectiveDetail from "./pages/CollectiveDetail.tsx";
 
 export default function App() {
@@ -22,8 +23,12 @@ export default function App() {
       <Route path="/collectives/:collectiveId/join" element={<CollectiveJoin />} />
       <Route path="/collectives/:collectiveId/edit" element={<CollectiveEdit />} />
       <Route
+        path="/collectives/:collectiveId/members/manage/:userId"
+        element={<CollectiveManageMember />}
+      />
+      <Route
         path="/collectives/:collectiveId/members/manage"
-        element={<CollectiveManageMembers />}
+        element={<CollectiveManageMembersList />}
       />
       <Route path="/collectives/:collectiveId" element={<CollectiveDetail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

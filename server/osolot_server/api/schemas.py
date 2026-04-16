@@ -55,6 +55,7 @@ class MembershipDetail(Schema):
     applied_at: str
     joined_at: str | None = None  # Missing for PENDING users
     updated_at: str
+    approved_by: UserSummary | None = None
 
 
 ### Auth

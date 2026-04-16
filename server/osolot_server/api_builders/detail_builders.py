@@ -1,26 +1,53 @@
 from ..api.schemas import CollectiveDetail, MembershipDetail
 from ..models import Collective, Membership, User
 from ..permissions.collective_permissions import (
+    membership_can_manage_members,
     user_visible_collective_members,
     can_view_collective,
 )
-from .summary_builders import collective_summary, membership_summary
+from .summary_builders import collective_summary, membership_summary, user_summary
 from ninja.errors import HttpError
 
 from django.db.models import QuerySet
 
 
-# TODO: Limit fields in MembershipDetail based on caller
-# Self should see ~everything (maybe not mod notes, if they exist)
-# group members don't see others' applications, etc
-def membership_detail(membership: Membership) -> MembershipDetail:
+def _membership_detail(membership: Membership) -> MembershipDetail:
     return MembershipDetail(
         summary=membership_summary(membership),
         application_message=membership.application_message,
         applied_at=membership.applied_at.isoformat(),
         joined_at=membership.joined_at.isoformat() if membership.joined_at else None,
         updated_at=membership.updated_at.isoformat(),
+        approved_by=(
+            user_summary(membership.approved_by) if membership.approved_by else None
+        ),
     )
+
+
+def membership_detail_for_viewer(
+    membership: Membership, viewer: User | None
+) -> MembershipDetail:
+    membership_detail = _membership_detail(membership)
+
+    # Users can see all details of their own membership.
+    if viewer and viewer.id == membership.user.id:
+        return membership_detail
+
+    viewer_membership = Membership.find_for(viewer, membership.collective)
+    if (
+        viewer_membership is None
+        and membership.collective.visibility == Collective.Visibility.PRIVATE
+    ):
+        raise HttpError(404, "Membership not found.")
+
+    # Redact admin/moderator-only fields.
+    if not membership_can_manage_members(viewer_membership):
+        delattr(membership_detail, "applied_at")
+        delattr(membership_detail, "updated_at")
+        delattr(membership_detail, "application_message")
+        delattr(membership_detail, "approved_by")
+
+    return membership_detail
 
 
 def _collective_detail_with_members(

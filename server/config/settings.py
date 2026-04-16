@@ -124,6 +124,22 @@ def _database_config() -> dict:
 
 DATABASES = {"default": _database_config()}
 
+if DEBUG:
+    INSTALLED_APPS.append("debug_toolbar")
+    MIDDLEWARE.insert(
+        1,
+        "debug_toolbar.middleware.DebugToolbarMiddleware",
+    )
+
+INTERNAL_IPS = [
+    ip.strip()
+    for ip in os.environ.get(
+        "DJANGO_INTERNAL_IPS",
+        "127.0.0.1,::1",
+    ).split(",")
+    if ip.strip()
+]
+
 ## Email: defaults to console backend in development (emails printed to stdout).
 EMAIL_BACKEND = os.environ.get(
     "DJANGO_EMAIL_BACKEND",

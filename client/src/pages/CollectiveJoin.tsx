@@ -89,11 +89,11 @@ export default function CollectiveJoin() {
     setSubmitting(true);
     try {
       if (pendingEdit) {
-        await api.osolotServerApiCollectivesUpdateMembership(id, user.id, {
+        await api.osolotServerApiCollectiveMembershipsUpdateMembership(id, user.id, {
           application_message: applicationMessage,
         });
       } else {
-        await api.osolotServerApiCollectivesJoinCollective(id, {
+        await api.osolotServerApiCollectiveMembershipsJoinCollective(id, {
           application_message: applicationMessage,
         });
       }

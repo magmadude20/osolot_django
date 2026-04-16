@@ -25,14 +25,6 @@ export interface JoinCollectiveRequest {
 
 export type MembershipDetailJoinedAt = string | null;
 
-export interface MembershipDetail {
-  application_message: string;
-  applied_at: string;
-  joined_at?: MembershipDetailJoinedAt;
-  summary: MembershipSummary;
-  updated_at: string;
-}
-
 export interface CollectiveSettings {
   /** @maxLength 31 */
   admission_type?: string;
@@ -55,6 +47,8 @@ export interface UserSummary {
   last_name: string;
 }
 
+export type MembershipDetailApprovedBy = UserSummary | null;
+
 export interface CollectiveSummary {
   admission_type: string;
   description: string;
@@ -68,6 +62,15 @@ export interface MembershipSummary {
   role: string;
   status: string;
   user: UserSummary;
+}
+
+export interface MembershipDetail {
+  application_message: string;
+  applied_at: string;
+  approved_by?: MembershipDetailApprovedBy;
+  joined_at?: MembershipDetailJoinedAt;
+  summary: MembershipSummary;
+  updated_at: string;
 }
 
 export interface CollectiveDetail {

@@ -4,7 +4,7 @@ from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
 
-from ..api_builders.detail_builders import membership_detail
+from ..api_builders.detail_builders import membership_detail_for_viewer
 from ..api_builders.summary_builders import membership_summary
 from ..models import Collective, Membership
 from ..permissions.collective_permissions import (
@@ -34,6 +34,9 @@ def _validate_update_membership_request(request: UpdateMembershipRequest) -> Non
         raise HttpError(400, "Invalid role.")
 
 
+# This method may not be needed, since getting a collective already gives all membership summaries.
+# It could be used in the future for pagination.
+# At this point, it's already here and shouldn't be hurting anything, so leaving it.
 @collective_memberships_router.get(
     "/{collective_id}/members",
     response=list[MembershipSummary],
@@ -56,29 +59,29 @@ def list_memberships(request, collective_id: int):
     tags=["memberships"],
 )
 def join_collective(request, collective_id: int, data: JoinCollectiveRequest):
-    c = get_object_or_404(Collective, id=collective_id)
+    collective = get_object_or_404(Collective, id=collective_id)
     user = request.auth
-    if Membership.objects.filter(user=user, collective=c).exists():
+
+    if Membership.find_for(user, collective) is not None:
         raise HttpError(400, "Already a member or have a pending application.")
 
-    if c.admission_type == Collective.AdmissionType.OPEN:
-        m = Membership.objects.create(
-            collective=c,
+    if collective.admission_type == Collective.AdmissionType.OPEN:
+        membership = Membership.objects.create(
+            collective=collective,
             user=user,
             status=Membership.Status.ACTIVE,
             role=Membership.Role.MEMBER,
             joined_at=timezone.now(),
         )
     else:
-        m = Membership.objects.create(
-            collective=c,
+        membership = Membership.objects.create(
+            collective=collective,
             user=user,
             status=Membership.Status.PENDING,
             role=Membership.Role.MEMBER,
             application_message=data.application_message,
         )
-    m = Membership.objects.select_related("user", "collective").get(pk=m.pk)
-    return membership_detail(m)
+    return membership_detail_for_viewer(membership, user)
 
 
 @collective_memberships_router.get(
@@ -90,16 +93,15 @@ def get_membership(request, collective_id: int, user_id: int):
     collective = get_object_or_404(Collective, id=collective_id)
     viewer = get_optional_user(request)
 
-    user_membership = (
+    visible_user_membership = (
         user_visible_collective_members(viewer, collective)
         .filter(user_id=user_id)
         .first()
     )
-
-    if user_membership is None:
+    if visible_user_membership is None:
         raise HttpError(404, "Membership not found.")
 
-    return membership_detail(user_membership)
+    return membership_detail_for_viewer(visible_user_membership, viewer)
 
 
 @collective_memberships_router.put(
@@ -150,6 +152,7 @@ def update_membership(
         ):
             user_membership.joined_at = timezone.now()
             user_membership.status = data.status
+            user_membership.approved_by = actor
         else:
             # Only allow updating status from PENDING -> ACTIVE (for now)
             pass
@@ -176,7 +179,7 @@ def update_membership(
             role=Membership.Role.ADMIN,
         ).exists():
             raise HttpError(400, "Collective must have at least one active admin.")
-    return membership_detail(user_membership)
+    return membership_detail_for_viewer(user_membership, actor)
 
 
 @collective_memberships_router.delete(

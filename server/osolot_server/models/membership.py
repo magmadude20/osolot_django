@@ -22,6 +22,13 @@ class Membership(models.Model):
 
     collective = models.ForeignKey(Collective, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    approved_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="memberships_approved",
+    )
     application_message = models.TextField(
         blank=True, help_text="Message accompanying an application."
     )

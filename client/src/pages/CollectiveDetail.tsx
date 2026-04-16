@@ -113,7 +113,7 @@ export default function CollectiveDetail() {
     setLeaving(true);
     void (async () => {
       try {
-        await api.osolotServerApiCollectivesDeleteMembership(id, user.id);
+        await api.osolotServerApiCollectiveMembershipsDeleteMembership(id, user.id);
         navigate("/collectives", { replace: true });
       } catch {
         setLeaveError(

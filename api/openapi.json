@@ -1148,6 +1148,16 @@
           "updated_at": {
             "title": "Updated At",
             "type": "string"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

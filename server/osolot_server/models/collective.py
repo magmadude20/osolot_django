@@ -11,7 +11,10 @@ class Collective(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     members = models.ManyToManyField(
-        User, through="Membership", related_name="collectives"
+        User,
+        through="Membership",
+        through_fields=("collective", "user"),
+        related_name="collectives",
     )
 
     class Visibility(models.TextChoices):
