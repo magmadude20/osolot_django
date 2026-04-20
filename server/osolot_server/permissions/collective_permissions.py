@@ -25,22 +25,6 @@ def can_manage_memberships(user: User, collective: Collective) -> bool:
     return membership_can_manage_members(Membership.find_for(user, collective))
 
 
-# Collective visibility:
-# Private collectives can only be seen by members (including pending members)
-# If you can see a collective, you can see its *active* members
-# Pending members can only be seen by admin/moderator AND the pending user themself
-def can_view_collective(user: User | None, collective: Collective) -> bool:
-    if collective.visibility == Collective.Visibility.PUBLIC:
-        return True
-    if user is None:
-        return False
-    membership = Membership.find_for(user, collective)
-    return membership is not None and membership.status in (
-        Membership.Status.ACTIVE,
-        Membership.Status.PENDING,
-    )
-
-
 # Query Sets
 
 
@@ -57,7 +41,8 @@ def user_visible_collectives(viewer: User | None) -> QuerySet[Membership]:
 
 # Collective member visibility:
 # Admins and mods can see all members
-# Members can see other active members, and thier own membership (which may be pending)
+# Pending members can only see their membership
+# Members can see other active members
 # Anyone can see public collectives active users
 # Only members can see a private collectives members
 def user_visible_collective_members(
@@ -67,19 +52,24 @@ def user_visible_collective_members(
         "user", "collective"
     )
 
-    viewer_membership = Membership.find_for(viewer, collective)
-    if viewer_membership is not None:
-        if membership_can_manage_members(viewer_membership):
-            # Admins/moderators can see all members
-            return collective_members
+    viewer_membership_query = collective_members.filter(user=viewer)
+    # Optimization: Don't use exists() to prevent second lookup when getting membership
+    # See: https://docs.djangoproject.com/en/6.0/ref/models/querysets/#django.db.models.query.QuerySet.exists
+    if not viewer_membership_query:
+        # Viewer is NOT a member of the collective.
+        return collective_members.none()
 
-        # Regular members can see themselves and active members
-        return collective_members.filter(
-            Q(status=Membership.Status.ACTIVE) | Q(user=viewer)
-        )
+    # Use [0] instead of first(), since first() causes another db query.
+    # I don't think it _should_, but that's what happens in testing.
+    viewer_membership = viewer_membership_query[0]
 
-    # Viewer is NOT a member of the collective...
-    if collective.visibility == Collective.Visibility.PRIVATE:
-        return Membership.objects.none()
-    # Show active members of public collectives.
+    # Pending users can only see their own membership.
+    if viewer_membership.status != Membership.Status.ACTIVE:
+        return viewer_membership_query
+
+    if membership_can_manage_members(viewer_membership):
+        # Admins/moderators can see all members
+        return collective_members
+
+    # Regular members can see active members
     return collective_members.filter(status=Membership.Status.ACTIVE)

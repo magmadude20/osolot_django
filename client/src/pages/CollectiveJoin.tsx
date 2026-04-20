@@ -5,6 +5,7 @@ import {
   fetchCollective,
   fetchMembership,
   isAbortError,
+  isValidCollectiveSlug,
 } from "../api/collectives-queries";
 import { getOsolotAPI } from "../api/generated";
 import { useAuth } from "../auth/AuthContext";
@@ -13,12 +14,13 @@ import "../App.css";
 const api = getOsolotAPI();
 
 export default function CollectiveJoin() {
-  const { collectiveId } = useParams<{ collectiveId: string }>();
+  const { collectiveSlug } = useParams<{ collectiveSlug: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  const id = collectiveId ? Number.parseInt(collectiveId, 10) : NaN;
-  const backHref = Number.isFinite(id) ? `/collectives/${id}` : "/collectives";
+  const slug = collectiveSlug ?? "";
+  const slugOk = isValidCollectiveSlug(slug);
+  const backHref = slugOk ? `/collectives/${slug}` : "/collectives";
 
   const [collective, setCollective] = useState<CollectiveDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -29,14 +31,14 @@ export default function CollectiveJoin() {
   const [membershipChecked, setMembershipChecked] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) {
+    if (!slugOk) {
       setLoadError("Invalid collective.");
       return;
     }
     const ac = new AbortController();
     (async () => {
       try {
-        const c = await fetchCollective(id, ac.signal);
+        const c = await fetchCollective(slug, ac.signal);
         setCollective(c);
       } catch (e) {
         if (isAbortError(e)) return;
@@ -44,11 +46,17 @@ export default function CollectiveJoin() {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+  }, [slug, slugOk]);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) return;
+    if (!slugOk) return;
     if (!user) {
+      setPendingEdit(false);
+      setMembershipChecked(true);
+      return;
+    }
+    const viewerId = user.id;
+    if (viewerId == null) {
       setPendingEdit(false);
       setMembershipChecked(true);
       return;
@@ -62,7 +70,7 @@ export default function CollectiveJoin() {
     setMembershipChecked(false);
     void (async () => {
       try {
-        const m = await fetchMembership(id, user.id, ac.signal);
+        const m = await fetchMembership(slug, viewerId, ac.signal);
         if (m.summary.status === "pending") {
           setPendingEdit(true);
           setApplicationMessage(m.application_message ?? "");
@@ -76,7 +84,7 @@ export default function CollectiveJoin() {
       }
     })();
     return () => ac.abort();
-  }, [collective, user, id, navigate, backHref]);
+  }, [collective, user, slug, slugOk, navigate, backHref]);
 
   const admissionIsApplication =
     collective?.summary.admission_type === "application";
@@ -84,16 +92,18 @@ export default function CollectiveJoin() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!user || !Number.isFinite(id)) return;
+    if (!user || !slugOk) return;
+    const viewerId = user.id;
+    if (viewerId == null) return;
     setSubmitError(null);
     setSubmitting(true);
     try {
       if (pendingEdit) {
-        await api.osolotServerApiCollectiveMembershipsUpdateMembership(id, user.id, {
+        await api.osolotServerApiCollectiveMembershipsUpdateMembership(slug, viewerId, {
           application_message: applicationMessage,
         });
       } else {
-        await api.osolotServerApiCollectiveMembershipsJoinCollective(id, {
+        await api.osolotServerApiCollectiveMembershipsJoinCollective(slug, {
           application_message: applicationMessage,
         });
       }
@@ -117,7 +127,7 @@ export default function CollectiveJoin() {
     );
   }
 
-  if (loadError || !Number.isFinite(id)) {
+  if (loadError || !slugOk) {
     return (
       <div className="page">
         <p className="error">{loadError ?? "Invalid collective."}</p>

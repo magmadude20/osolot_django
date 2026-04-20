@@ -70,12 +70,6 @@ export interface CollectiveSettings {
   visibility?: string;
 }
 
-export interface CollectiveDetail {
-  application_question: string;
-  members: MembershipSummary[];
-  summary: CollectiveSummary;
-}
-
 export type UserSummaryLastName = string | null;
 
 export type UserSummaryId = number | null;
@@ -112,15 +106,14 @@ export const Role = {
   member: 'member',
 } as const;
 
-export type CollectiveSummaryId = number | null;
-
 export interface CollectiveSummary {
   admission_type?: string;
   /** @maxLength 10000 */
   description: string;
-  id?: CollectiveSummaryId;
   /** @maxLength 255 */
   name: string;
+  /** @maxLength 16 */
+  slug?: string;
   visibility?: string;
 }
 
@@ -131,11 +124,20 @@ export interface MembershipSummary {
   user: UserSummary;
 }
 
+export interface CollectiveDetail {
+  application_question: string;
+  members: MembershipSummary[];
+  summary: CollectiveSummary;
+}
+
 export type UpdateProfileRequestLastName = string | null;
 
 export type UpdateProfileRequestFirstName = string | null;
 
+export type UpdateProfileRequestBio = string | null;
+
 export interface UpdateProfileRequest {
+  bio?: UpdateProfileRequestBio;
   first_name?: UpdateProfileRequestFirstName;
   last_name?: UpdateProfileRequestLastName;
   /**
@@ -151,7 +153,10 @@ export type UserProfileId = number | null;
 
 export type UserProfileFirstName = string | null;
 
+export type UserProfileBio = string | null;
+
 export interface UserProfile {
+  bio?: UserProfileBio;
   /** @maxLength 254 */
   email: string;
   email_verified?: boolean;
@@ -415,10 +420,10 @@ const osolotServerApiCollectivesCreateCollective = (
  * @summary Get Collective
  */
 const osolotServerApiCollectivesGetCollective = (
-    collectiveId: number,
+    collectiveSlug: string,
  ) => {
       return customInstance<CollectiveDetail>(
-      {url: `/api/collectives/${collectiveId}`, method: 'GET'
+      {url: `/api/collectives/${collectiveSlug}`, method: 'GET'
     },
       );
     }
@@ -427,11 +432,11 @@ const osolotServerApiCollectivesGetCollective = (
  * @summary Update Collective
  */
 const osolotServerApiCollectivesUpdateCollective = (
-    collectiveId: number,
+    collectiveSlug: string,
     collectiveSettings: CollectiveSettings,
  ) => {
       return customInstance<CollectiveDetail>(
-      {url: `/api/collectives/${collectiveId}`, method: 'PUT',
+      {url: `/api/collectives/${collectiveSlug}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: collectiveSettings
     },
@@ -442,10 +447,10 @@ const osolotServerApiCollectivesUpdateCollective = (
  * @summary Delete Collective
  */
 const osolotServerApiCollectivesDeleteCollective = (
-    collectiveId: number,
+    collectiveSlug: string,
  ) => {
       return customInstance<MessageOut>(
-      {url: `/api/collectives/${collectiveId}`, method: 'DELETE'
+      {url: `/api/collectives/${collectiveSlug}`, method: 'DELETE'
     },
       );
     }
@@ -454,10 +459,10 @@ const osolotServerApiCollectivesDeleteCollective = (
  * @summary List Memberships
  */
 const osolotServerApiCollectiveMembershipsListMemberships = (
-    collectiveId: number,
+    collectiveSlug: string,
  ) => {
       return customInstance<MembershipSummary[]>(
-      {url: `/api/collectives/${collectiveId}/members`, method: 'GET'
+      {url: `/api/collectives/${collectiveSlug}/members`, method: 'GET'
     },
       );
     }
@@ -466,11 +471,11 @@ const osolotServerApiCollectiveMembershipsListMemberships = (
  * @summary Join Collective
  */
 const osolotServerApiCollectiveMembershipsJoinCollective = (
-    collectiveId: number,
+    collectiveSlug: string,
     joinCollectiveRequest: JoinCollectiveRequest,
  ) => {
       return customInstance<MembershipDetail>(
-      {url: `/api/collectives/${collectiveId}/join`, method: 'POST',
+      {url: `/api/collectives/${collectiveSlug}/join`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: joinCollectiveRequest
     },
@@ -481,11 +486,11 @@ const osolotServerApiCollectiveMembershipsJoinCollective = (
  * @summary Get Membership
  */
 const osolotServerApiCollectiveMembershipsGetMembership = (
-    collectiveId: number,
+    collectiveSlug: string,
     userId: number,
  ) => {
       return customInstance<MembershipDetail>(
-      {url: `/api/collectives/${collectiveId}/membership/${userId}`, method: 'GET'
+      {url: `/api/collectives/${collectiveSlug}/membership/${userId}`, method: 'GET'
     },
       );
     }
@@ -494,12 +499,12 @@ const osolotServerApiCollectiveMembershipsGetMembership = (
  * @summary Update Membership
  */
 const osolotServerApiCollectiveMembershipsUpdateMembership = (
-    collectiveId: number,
+    collectiveSlug: string,
     userId: number,
     updateMembershipRequest: UpdateMembershipRequest,
  ) => {
       return customInstance<MembershipDetail>(
-      {url: `/api/collectives/${collectiveId}/membership/${userId}`, method: 'PUT',
+      {url: `/api/collectives/${collectiveSlug}/membership/${userId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateMembershipRequest
     },
@@ -510,11 +515,11 @@ const osolotServerApiCollectiveMembershipsUpdateMembership = (
  * @summary Delete Membership
  */
 const osolotServerApiCollectiveMembershipsDeleteMembership = (
-    collectiveId: number,
+    collectiveSlug: string,
     userId: number,
  ) => {
       return customInstance<MessageOut>(
-      {url: `/api/collectives/${collectiveId}/membership/${userId}`, method: 'DELETE'
+      {url: `/api/collectives/${collectiveSlug}/membership/${userId}`, method: 'DELETE'
     },
       );
     }

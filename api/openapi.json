@@ -391,17 +391,17 @@
         ]
       }
     },
-    "/api/collectives/{collective_id}": {
+    "/api/collectives/{collective_slug}": {
       "get": {
         "operationId": "osolot_server_api_collectives_get_collective",
         "summary": "Get Collective",
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           }
@@ -428,10 +428,10 @@
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           }
@@ -473,10 +473,10 @@
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           }
@@ -503,17 +503,17 @@
         ]
       }
     },
-    "/api/collectives/{collective_id}/members": {
+    "/api/collectives/{collective_slug}/members": {
       "get": {
         "operationId": "osolot_server_api_collective_memberships_list_memberships",
         "summary": "List Memberships",
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           }
@@ -535,21 +535,21 @@
           }
         },
         "tags": [
-          "memberships"
+          "collectives"
         ]
       }
     },
-    "/api/collectives/{collective_id}/join": {
+    "/api/collectives/{collective_slug}/join": {
       "post": {
         "operationId": "osolot_server_api_collective_memberships_join_collective",
         "summary": "Join Collective",
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           }
@@ -567,7 +567,7 @@
           }
         },
         "tags": [
-          "memberships"
+          "collectives"
         ],
         "requestBody": {
           "content": {
@@ -586,17 +586,17 @@
         ]
       }
     },
-    "/api/collectives/{collective_id}/membership/{user_id}": {
+    "/api/collectives/{collective_slug}/membership/{user_id}": {
       "get": {
         "operationId": "osolot_server_api_collective_memberships_get_membership",
         "summary": "Get Membership",
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           },
@@ -632,10 +632,10 @@
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           },
@@ -686,10 +686,10 @@
         "parameters": [
           {
             "in": "path",
-            "name": "collective_id",
+            "name": "collective_slug",
             "schema": {
-              "title": "Collective Id",
-              "type": "integer"
+              "title": "Collective Slug",
+              "type": "string"
             },
             "required": true
           },
@@ -973,6 +973,19 @@
               }
             ],
             "title": "Last Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Bio"
           }
         },
         "required": [
@@ -1013,6 +1026,19 @@
               }
             ],
             "title": "Last Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Bio"
           }
         },
         "required": [
@@ -1023,16 +1049,10 @@
       },
       "CollectiveSummary": {
         "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "ID"
+          "slug": {
+            "maxLength": 16,
+            "title": "Slug",
+            "type": "string"
           },
           "name": {
             "maxLength": 255,

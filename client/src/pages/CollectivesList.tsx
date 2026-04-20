@@ -47,8 +47,8 @@ export default function CollectivesList() {
       {items && items.length > 0 ? (
         <ul className="collective-list">
           {items.map((c) => (
-            <li key={c.id}>
-              <Link to={`/collectives/${c.id}`} className="collective-link">
+            <li key={c.slug}>
+              <Link to={`/collectives/${c.slug}`} className="collective-link">
                 <span className="collective-name">{c.name}</span>
                 {c.description ? (
                   <span className="collective-desc">{c.description}</span>

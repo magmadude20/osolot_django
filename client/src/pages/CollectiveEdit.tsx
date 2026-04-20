@@ -1,7 +1,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CollectiveDetail } from "../api/generated";
-import { fetchCollective, isAbortError } from "../api/collectives-queries";
+import {
+  fetchCollective,
+  isAbortError,
+  isValidCollectiveSlug,
+} from "../api/collectives-queries";
 import { getOsolotAPI } from "../api/generated";
 import { useAuth } from "../auth/AuthContext";
 import "../App.css";
@@ -9,17 +13,18 @@ import "../App.css";
 const api = getOsolotAPI();
 
 export default function CollectiveEdit() {
-  const { collectiveId } = useParams<{ collectiveId: string }>();
+  const { collectiveSlug } = useParams<{ collectiveSlug: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  const id = collectiveId ? Number.parseInt(collectiveId, 10) : NaN;
+  const slug = collectiveSlug ?? "";
+  const slugOk = isValidCollectiveSlug(slug);
 
   const [collective, setCollective] = useState<CollectiveDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState("private");
+  const [visibility, setVisibility] = useState("unlisted");
   const [admissionType, setAdmissionType] = useState("open");
   const [applicationQuestion, setApplicationQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,19 +32,23 @@ export default function CollectiveEdit() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) {
+    if (!slugOk) {
       setLoadError("Invalid collective.");
       return;
     }
     const ac = new AbortController();
     (async () => {
       try {
-        const c = await fetchCollective(id, ac.signal);
+        const c = await fetchCollective(slug, ac.signal);
         setCollective(c);
         setName(c.summary.name);
-        setDescription(c.summary.description);
-        setVisibility(c.summary.visibility);
-        setAdmissionType(c.summary.admission_type);
+        setDescription(c.summary.description ?? "");
+        setVisibility(
+          c.summary.visibility === "private" || !c.summary.visibility
+            ? "unlisted"
+            : c.summary.visibility,
+        );
+        setAdmissionType(c.summary.admission_type ?? "open");
         setApplicationQuestion(c.application_question);
       } catch (e) {
         if (isAbortError(e)) return;
@@ -47,7 +56,7 @@ export default function CollectiveEdit() {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+  }, [slug, slugOk]);
 
   const isAdmin = useMemo(() => {
     if (!user || !collective) return false;
@@ -56,15 +65,15 @@ export default function CollectiveEdit() {
     );
   }, [user, collective]);
 
-  const detailHref = `/collectives/${id}`;
+  const detailHref = `/collectives/${slug}`;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!user || !Number.isFinite(id)) return;
+    if (!user || !slugOk) return;
     setError(null);
     setSubmitting(true);
     try {
-      await api.osolotServerApiCollectivesUpdateCollective(id, {
+      await api.osolotServerApiCollectivesUpdateCollective(slug, {
         name: name.trim(),
         description,
         visibility,
@@ -80,7 +89,7 @@ export default function CollectiveEdit() {
   }
 
   function onDeleteClick() {
-    if (!Number.isFinite(id) || !collective) return;
+    if (!slugOk || !collective) return;
     const label = collective.summary.name;
     const ok = window.confirm(
       `Delete “${label}”? This permanently removes the collective and cannot be undone.`,
@@ -91,7 +100,7 @@ export default function CollectiveEdit() {
     setDeleting(true);
     void (async () => {
       try {
-        await api.osolotServerApiCollectivesDeleteCollective(id);
+        await api.osolotServerApiCollectivesDeleteCollective(slug);
         navigate("/collectives", { replace: true });
       } catch {
         setError("Could not delete the collective.");
@@ -114,19 +123,19 @@ export default function CollectiveEdit() {
       <div className="page">
         <header className="header">
           <h1>Edit collective</h1>
-          <Link to={Number.isFinite(id) ? detailHref : "/collectives"} className="link">
+          <Link to={slugOk ? detailHref : "/collectives"} className="link">
             Back
           </Link>
         </header>
         <p className="muted">Log in to edit this collective.</p>
-        <Link to="/login" state={{ from: Number.isFinite(id) ? `/collectives/${id}/edit` : "/collectives" }} className="btn">
+        <Link to="/login" state={{ from: slugOk ? `/collectives/${slug}/edit` : "/collectives" }} className="btn">
           Log in
         </Link>
       </div>
     );
   }
 
-  if (loadError || !Number.isFinite(id)) {
+  if (loadError || !slugOk) {
     return (
       <div className="page">
         <p className="error">{loadError ?? "Invalid collective."}</p>
@@ -197,8 +206,8 @@ export default function CollectiveEdit() {
             value={visibility}
             onChange={(e) => setVisibility(e.target.value)}
           >
-            <option value="private">Private</option>
-            <option value="public">Public</option>
+            <option value="unlisted">Unlisted (not in directory; join with link)</option>
+            <option value="public">Public (listed for everyone)</option>
           </select>
         </label>
         <label>

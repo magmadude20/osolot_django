@@ -6,6 +6,7 @@ import {
   fetchCollective,
   fetchMembership,
   isAbortError,
+  isValidCollectiveSlug,
 } from "../api/collectives-queries";
 import { useAuth } from "../auth/AuthContext";
 import "../App.css";
@@ -13,8 +14,9 @@ import "../App.css";
 const api = getOsolotAPI();
 
 export default function CollectiveDetail() {
-  const { collectiveId } = useParams<{ collectiveId: string }>();
-  const id = collectiveId ? Number.parseInt(collectiveId, 10) : NaN;
+  const { collectiveSlug } = useParams<{ collectiveSlug: string }>();
+  const slug = collectiveSlug ?? "";
+  const slugOk = isValidCollectiveSlug(slug);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -28,7 +30,7 @@ export default function CollectiveDetail() {
   const [membershipLoading, setMembershipLoading] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) {
+    if (!slugOk) {
       setError("Invalid collective.");
       return;
     }
@@ -37,7 +39,7 @@ export default function CollectiveDetail() {
       setError(null);
       setCollective(null);
       try {
-        const c = await fetchCollective(id, ac.signal);
+        const c = await fetchCollective(slug, ac.signal);
         setCollective(c);
       } catch (e) {
         if (isAbortError(e)) return;
@@ -45,10 +47,16 @@ export default function CollectiveDetail() {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+  }, [slug, slugOk]);
 
   useEffect(() => {
-    if (!user || !Number.isFinite(id) || collective === null) {
+    if (!user || !slugOk || collective === null) {
+      setMyMembership(null);
+      setMembershipLoading(false);
+      return;
+    }
+    const viewerId = user.id;
+    if (viewerId == null) {
       setMyMembership(null);
       setMembershipLoading(false);
       return;
@@ -57,7 +65,7 @@ export default function CollectiveDetail() {
     setMembershipLoading(true);
     void (async () => {
       try {
-        const m = await fetchMembership(id, user.id, ac.signal);
+        const m = await fetchMembership(slug, viewerId, ac.signal);
         setMyMembership(m);
       } catch {
         setMyMembership(null);
@@ -66,7 +74,7 @@ export default function CollectiveDetail() {
       }
     })();
     return () => ac.abort();
-  }, [user, id, collective]);
+  }, [user, slug, slugOk, collective]);
 
   const isActiveMember = useMemo(() => {
     if (!user || !collective) return false;
@@ -78,11 +86,17 @@ export default function CollectiveDetail() {
   const isPendingApplicant =
     myMembership?.summary.status === "pending" && !membershipLoading;
 
+  const visibilityAllowsJoin =
+    collective != null &&
+    (collective.summary.visibility === "public" ||
+      collective.summary.visibility === "unlisted" ||
+      collective.summary.visibility === "private");
+
   const showJoin =
     collective != null &&
     !isActiveMember &&
     !isPendingApplicant &&
-    collective.summary.visibility === "public" &&
+    visibilityAllowsJoin &&
     !(user && membershipLoading);
 
   const isAdmin = useMemo(() => {
@@ -103,7 +117,9 @@ export default function CollectiveDetail() {
   }, [user, collective]);
 
   function handleLeaveCollective() {
-    if (!user || !collective || !Number.isFinite(id)) return;
+    if (!user || !collective || !slugOk) return;
+    const viewerId = user.id;
+    if (viewerId == null) return;
     const ok = window.confirm(
       "Leave this collective? You can join again later if the collective allows it.",
     );
@@ -113,7 +129,7 @@ export default function CollectiveDetail() {
     setLeaving(true);
     void (async () => {
       try {
-        await api.osolotServerApiCollectiveMembershipsDeleteMembership(id, user.id);
+        await api.osolotServerApiCollectiveMembershipsDeleteMembership(slug, viewerId);
         navigate("/collectives", { replace: true });
       } catch {
         setLeaveError(
@@ -125,7 +141,7 @@ export default function CollectiveDetail() {
     })();
   }
 
-  function formatAppliedAt(iso: string | undefined) {
+  function formatAppliedAt(iso: string | undefined | null) {
     if (!iso) return "—";
     try {
       return new Date(iso).toLocaleString(undefined, {
@@ -144,7 +160,7 @@ export default function CollectiveDetail() {
         <div className="nav-links">
           {collective && isAdmin ? (
             <Link
-              to={`/collectives/${collective.summary.id}/edit`}
+              to={`/collectives/${collective.summary.slug}/edit`}
               className="btn secondary"
             >
               Edit collective
@@ -169,7 +185,14 @@ export default function CollectiveDetail() {
             <dl className="kv collective-meta">
               <div>
                 <dt>Visibility</dt>
-                <dd>{collective.summary.visibility ?? "—"}</dd>
+                <dd>
+                  {collective.summary.visibility === "public"
+                    ? "Public"
+                    : collective.summary.visibility === "unlisted" ||
+                        collective.summary.visibility === "private"
+                      ? "Unlisted"
+                      : (collective.summary.visibility ?? "—")}
+                </dd>
               </div>
               <div>
                 <dt>Admission</dt>
@@ -204,7 +227,7 @@ export default function CollectiveDetail() {
                 ) : null}
                 <p className="collective-actions">
                   <Link
-                    to={`/collectives/${collective.summary.id}/join`}
+                    to={`/collectives/${collective.summary.slug}/join`}
                     className="btn secondary"
                   >
                     Edit application
@@ -215,7 +238,7 @@ export default function CollectiveDetail() {
             {showJoin ? (
               <p className="collective-actions">
                 <Link
-                  to={`/collectives/${collective.summary.id}/join`}
+                  to={`/collectives/${collective.summary.slug}/join`}
                   className="btn"
                 >
                   Join collective
@@ -241,7 +264,7 @@ export default function CollectiveDetail() {
               <h2>Members</h2>
               {canManageMembers ? (
                 <Link
-                  to={`/collectives/${collective.summary.id}/members/manage`}
+                  to={`/collectives/${collective.summary.slug}/members/manage`}
                   className="btn secondary"
                 >
                   Manage
@@ -253,7 +276,7 @@ export default function CollectiveDetail() {
             ) : (
               <ul className="member-list">
                 {collective.members.map((m) => (
-                  <li key={`${m.user.id}-${m.collective.id}`}>
+                  <li key={`${m.user.id}-${m.collective.slug}`}>
                     <span className="member-name">
                       {m.user.first_name} {m.user.last_name}
                     </span>

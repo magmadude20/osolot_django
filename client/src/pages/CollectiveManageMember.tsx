@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { CollectiveDetail, MembershipDetail } from "../api/generated";
+import type {
+  CollectiveDetail,
+  MembershipDetail,
+  Role,
+} from "../api/generated";
 import { getOsolotAPI } from "../api/generated";
 import {
   fetchCollective,
   fetchMembership,
   isAbortError,
+  isValidCollectiveSlug,
 } from "../api/collectives-queries";
 import { useAuth } from "../auth/AuthContext";
 import "../App.css";
@@ -26,11 +31,12 @@ function formatWhen(iso: string | undefined | null) {
 }
 
 export default function CollectiveManageMember() {
-  const { collectiveId, userId } = useParams<{
-    collectiveId: string;
+  const { collectiveSlug, userId } = useParams<{
+    collectiveSlug: string;
     userId: string;
   }>();
-  const id = collectiveId ? Number.parseInt(collectiveId, 10) : NaN;
+  const slug = collectiveSlug ?? "";
+  const slugOk = isValidCollectiveSlug(slug);
   const targetUserId = userId ? Number.parseInt(userId, 10) : NaN;
 
   const { user, loading: authLoading } = useAuth();
@@ -43,7 +49,7 @@ export default function CollectiveManageMember() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(id) || !Number.isFinite(targetUserId)) {
+    if (!slugOk || !Number.isFinite(targetUserId)) {
       setLoadError("Invalid collective or user.");
       return;
     }
@@ -54,8 +60,8 @@ export default function CollectiveManageMember() {
     setMembership(null);
     void (async () => {
       try {
-        const c = await fetchCollective(id, ac.signal);
-        const m = await fetchMembership(id, targetUserId, ac.signal);
+        const c = await fetchCollective(slug, ac.signal);
+        const m = await fetchMembership(slug, targetUserId, ac.signal);
         if (ac.signal.aborted) return;
         setCollective(c);
         setMembership(m);
@@ -65,7 +71,7 @@ export default function CollectiveManageMember() {
       }
     })();
     return () => ac.abort();
-  }, [id, targetUserId]);
+  }, [slug, slugOk, targetUserId]);
 
   const canManage = useMemo(() => {
     if (!user || !collective) return false;
@@ -86,7 +92,7 @@ export default function CollectiveManageMember() {
 
   async function refresh() {
     const m = await api.osolotServerApiCollectiveMembershipsGetMembership(
-      id,
+      slug,
       targetUserId,
     );
     setMembership(m);
@@ -105,9 +111,7 @@ export default function CollectiveManageMember() {
     }
   }
 
-  const backHref = Number.isFinite(id)
-    ? `/collectives/${id}/members/manage`
-    : "/collectives";
+  const backHref = slugOk ? `/collectives/${slug}/members/manage` : "/collectives";
 
   if (authLoading) {
     return (
@@ -134,7 +138,7 @@ export default function CollectiveManageMember() {
     );
   }
 
-  if (loadError || !Number.isFinite(id) || !Number.isFinite(targetUserId)) {
+  if (loadError || !slugOk || !Number.isFinite(targetUserId)) {
     return (
       <div className="page">
         <p className="error">{loadError ?? "Invalid collective or user."}</p>
@@ -174,7 +178,7 @@ export default function CollectiveManageMember() {
 
   function handleApprove() {
     void withBusy(() =>
-      api.osolotServerApiCollectiveMembershipsUpdateMembership(id, targetUserId, {
+      api.osolotServerApiCollectiveMembershipsUpdateMembership(slug, targetUserId, {
         status: "active",
       }),
     );
@@ -186,7 +190,7 @@ export default function CollectiveManageMember() {
     );
     if (!ok) return;
     void withBusy(() =>
-      api.osolotServerApiCollectiveMembershipsDeleteMembership(id, targetUserId),
+      api.osolotServerApiCollectiveMembershipsDeleteMembership(slug, targetUserId),
     ).then(() => navigate(backHref, { replace: true }));
   }
 
@@ -196,13 +200,13 @@ export default function CollectiveManageMember() {
     );
     if (!ok) return;
     void withBusy(() =>
-      api.osolotServerApiCollectiveMembershipsDeleteMembership(id, targetUserId),
+      api.osolotServerApiCollectiveMembershipsDeleteMembership(slug, targetUserId),
     ).then(() => navigate(backHref, { replace: true }));
   }
 
-  function handleRoleChange(role: string) {
+  function handleRoleChange(role: Role) {
     void withBusy(() =>
-      api.osolotServerApiCollectiveMembershipsUpdateMembership(id, targetUserId, {
+      api.osolotServerApiCollectiveMembershipsUpdateMembership(slug, targetUserId, {
         role,
       }),
     );
@@ -216,7 +220,7 @@ export default function CollectiveManageMember() {
           <Link to={backHref} className="link">
             Back
           </Link>
-          <Link to={`/collectives/${id}`} className="link">
+          <Link to={`/collectives/${slug}`} className="link">
             Collective
           </Link>
         </div>
@@ -287,7 +291,7 @@ export default function CollectiveManageMember() {
                 className="manage-role-select"
                 value={membership.summary.role}
                 disabled={busy}
-                onChange={(e) => handleRoleChange(e.target.value)}
+                onChange={(e) => handleRoleChange(e.target.value as Role)}
               >
                 {ROLES.map((r) => (
                   <option key={r} value={r}>

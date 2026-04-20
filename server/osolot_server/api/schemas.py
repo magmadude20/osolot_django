@@ -22,7 +22,7 @@ class UserSummary(ModelSchema):
 class CollectiveSummary(ModelSchema):
     class Meta:
         model = Collective
-        fields = ["id", "name", "description", "visibility", "admission_type"]
+        fields = ["slug", "name", "description", "visibility", "admission_type"]
         # Future: num_members
 
 
@@ -38,8 +38,9 @@ class MembershipSummary(Schema):
 
 class UserDetail(Schema):
     summary: UserSummary
+    bio: str | None = None
     memberships: list[MembershipSummary]
-    # Future: bio, location, relation to viewer, mutuals
+    # Future: location, relation to viewer, mutuals
 
 
 class CollectiveDetail(Schema):
@@ -124,13 +125,14 @@ class UserProfile(ModelSchema):
             "email_verified",
             "first_name",
             "last_name",
+            "bio",
         ]
 
 
 class UpdateProfileRequest(ModelSchema):
     class Meta:
         model = User
-        fields = ["username", "first_name", "last_name"]
+        fields = ["username", "first_name", "last_name", "bio"]
         optional = ["__all__"]
 
 

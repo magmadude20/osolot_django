@@ -2,15 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { CollectiveDetail, MembershipSummary } from "../api/generated";
 import { getOsolotAPI } from "../api/generated";
-import { fetchCollective, isAbortError } from "../api/collectives-queries";
+import {
+  fetchCollective,
+  isAbortError,
+  isValidCollectiveSlug,
+} from "../api/collectives-queries";
 import { useAuth } from "../auth/AuthContext";
 import "../App.css";
 
 const api = getOsolotAPI();
 
 export default function CollectiveManageMembersList() {
-  const { collectiveId } = useParams<{ collectiveId: string }>();
-  const id = collectiveId ? Number.parseInt(collectiveId, 10) : NaN;
+  const { collectiveSlug } = useParams<{ collectiveSlug: string }>();
+  const slug = collectiveSlug ?? "";
+  const slugOk = isValidCollectiveSlug(slug);
   const { user, loading: authLoading } = useAuth();
 
   const [collective, setCollective] = useState<CollectiveDetail | null>(null);
@@ -18,7 +23,7 @@ export default function CollectiveManageMembersList() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) {
+    if (!slugOk) {
       setLoadError("Invalid collective.");
       return;
     }
@@ -28,8 +33,8 @@ export default function CollectiveManageMembersList() {
     setMemberships(null);
     void (async () => {
       try {
-        const c = await fetchCollective(id, ac.signal);
-        const list = await api.osolotServerApiCollectiveMembershipsListMemberships(id);
+        const c = await fetchCollective(slug, ac.signal);
+        const list = await api.osolotServerApiCollectiveMembershipsListMemberships(slug);
         if (ac.signal.aborted) return;
         setCollective(c);
         setMemberships(list);
@@ -39,7 +44,7 @@ export default function CollectiveManageMembersList() {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+  }, [slug, slugOk]);
 
   const canManage = useMemo(() => {
     if (!user || !collective) return false;
@@ -63,7 +68,7 @@ export default function CollectiveManageMembersList() {
     });
   }, [memberships]);
 
-  const detailHref = Number.isFinite(id) ? `/collectives/${id}` : "/collectives";
+  const detailHref = slugOk ? `/collectives/${slug}` : "/collectives";
 
   if (authLoading) {
     return (
@@ -90,7 +95,7 @@ export default function CollectiveManageMembersList() {
     );
   }
 
-  if (loadError || !Number.isFinite(id)) {
+  if (loadError || !slugOk) {
     return (
       <div className="page">
         <p className="error">{loadError ?? "Invalid collective."}</p>
@@ -138,7 +143,7 @@ export default function CollectiveManageMembersList() {
           const name =
             `${m.user.first_name} ${m.user.last_name}`.trim() || `User #${uid}`;
           const pending = m.status === "pending";
-          const href = `/collectives/${id}/members/manage/${uid}`;
+          const href = `/collectives/${slug}/members/manage/${uid}`;
 
           return (
             <li

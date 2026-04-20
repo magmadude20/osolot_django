@@ -20,17 +20,17 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/collectives" element={<CollectivesList />} />
       <Route path="/collectives/new" element={<CollectiveNew />} />
-      <Route path="/collectives/:collectiveId/join" element={<CollectiveJoin />} />
-      <Route path="/collectives/:collectiveId/edit" element={<CollectiveEdit />} />
+      <Route path="/collectives/:collectiveSlug/join" element={<CollectiveJoin />} />
+      <Route path="/collectives/:collectiveSlug/edit" element={<CollectiveEdit />} />
       <Route
-        path="/collectives/:collectiveId/members/manage/:userId"
+        path="/collectives/:collectiveSlug/members/manage/:userId"
         element={<CollectiveManageMember />}
       />
       <Route
-        path="/collectives/:collectiveId/members/manage"
+        path="/collectives/:collectiveSlug/members/manage"
         element={<CollectiveManageMembersList />}
       />
-      <Route path="/collectives/:collectiveId" element={<CollectiveDetail />} />
+      <Route path="/collectives/:collectiveSlug" element={<CollectiveDetail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />

@@ -13,6 +13,14 @@ export function isAbortError(e: unknown): boolean {
   return err?.code === "ERR_CANCELED";
 }
 
+/** Matches server `Collective.slug`: unique, URL-safe, up to 16 chars. */
+const COLLECTIVE_SLUG_RE = /^[A-Za-z0-9]{1,16}$/;
+
+export function isValidCollectiveSlug(s: string | undefined): boolean {
+  if (s === undefined || s === "") return false;
+  return COLLECTIVE_SLUG_RE.test(s);
+}
+
 export function fetchPublicCollectives(signal?: AbortSignal) {
   return customInstance<CollectiveSummary[]>({
     url: "/api/collectives/",
@@ -21,32 +29,32 @@ export function fetchPublicCollectives(signal?: AbortSignal) {
   });
 }
 
-export function fetchCollective(collectiveId: number, signal?: AbortSignal) {
+export function fetchCollective(collectiveSlug: string, signal?: AbortSignal) {
   return customInstance<CollectiveDetail>({
-    url: `/api/collectives/${collectiveId}`,
+    url: `/api/collectives/${collectiveSlug}`,
     method: "GET",
     signal,
   });
 }
 
 export function fetchCollectiveMemberships(
-  collectiveId: number,
+  collectiveSlug: string,
   signal?: AbortSignal,
 ) {
   return customInstance<MembershipSummary[]>({
-    url: `/api/collectives/${collectiveId}/members`,
+    url: `/api/collectives/${collectiveSlug}/members`,
     method: "GET",
     signal,
   });
 }
 
 export function fetchMembership(
-  collectiveId: number,
+  collectiveSlug: string,
   userId: number,
   signal?: AbortSignal,
 ) {
   return customInstance<MembershipDetail>({
-    url: `/api/collectives/${collectiveId}/membership/${userId}`,
+    url: `/api/collectives/${collectiveSlug}/membership/${userId}`,
     method: "GET",
     signal,
   });

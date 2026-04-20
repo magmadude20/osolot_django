@@ -53,6 +53,8 @@ def list_collectives(request):
 def create_collective(request, data: CollectiveSettings):
     _validate_collective_settings(data)
     user = request.auth
+    if user.email_verified is False:
+        raise HttpError(403, "Verified email required to create a collective.")
     with transaction.atomic():
         collective = Collective.objects.create(
             name=data.name.strip(),
@@ -72,27 +74,30 @@ def create_collective(request, data: CollectiveSettings):
 
 
 @collectives_router.get(
-    "/{collective_id}", response=CollectiveDetail, tags=["collectives"]
+    "/{collective_slug}", response=CollectiveDetail, tags=["collectives"]
 )
-def get_collective(request, collective_id: int):
-    collective = get_object_or_404(Collective, id=collective_id)
+def get_collective(request, collective_slug: str):
+    collective = get_object_or_404(Collective, slug=collective_slug)
     user = get_optional_user(request)
     return collective_detail_for_viewer(collective, user)
 
 
 @collectives_router.put(
-    "/{collective_id}",
+    "/{collective_slug}",
     response=CollectiveDetail,
     auth=JWTAuth(),
     tags=["collectives"],
 )
-def update_collective(request, collective_id: int, data: CollectiveSettings):
+def update_collective(request, collective_slug: str, data: CollectiveSettings):
     _validate_collective_settings(data)
 
     user = request.auth
+    if user.email_verified is False:
+        raise HttpError(403, "Verified email required to update a collective.")
+
     membership = get_object_or_404(
         Membership.objects.select_related("user", "collective"),
-        collective_id=collective_id,
+        collective__slug=collective_slug,
         user_id=user.id,
     )
     if membership.role != Membership.Role.ADMIN:
@@ -109,16 +114,19 @@ def update_collective(request, collective_id: int, data: CollectiveSettings):
 
 
 @collectives_router.delete(
-    "/{collective_id}",
+    "/{collective_slug}",
     response=MessageOut,
     auth=JWTAuth(),
     tags=["collectives"],
 )
-def delete_collective(request, collective_id: int):
+def delete_collective(request, collective_slug: str):
     user = request.auth
+    if user.email_verified is False:
+        raise HttpError(403, "Verified email required to delete a collective.")
+
     membership = get_object_or_404(
         Membership.objects.select_related("user", "collective"),
-        collective_id=collective_id,
+        collective__slug=collective_slug,
         user_id=user.id,
     )
     if membership.role != Membership.Role.ADMIN:

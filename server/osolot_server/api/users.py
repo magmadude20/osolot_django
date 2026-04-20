@@ -45,6 +45,12 @@ def update_me(request, data: UpdateProfileRequest):
             user.username = new_username
             update_fields.append("username")
 
+    if data.bio is not None:
+        new_bio = (data.bio or "").strip()
+        if new_bio != user.bio:
+            user.bio = new_bio
+            update_fields.append("bio")
+
     if update_fields:
         try:
             user.save(update_fields=update_fields)

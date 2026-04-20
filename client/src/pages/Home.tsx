@@ -12,6 +12,7 @@ export default function Home() {
   const [editUsername, setEditUsername] = useState("");
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
+  const [editBio, setEditBio] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [verificationSending, setVerificationSending] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(
@@ -21,8 +22,9 @@ export default function Home() {
   useEffect(() => {
     if (user) {
       setEditUsername(user.username);
-      setEditFirstName(user.first_name);
-      setEditLastName(user.last_name);
+      setEditFirstName(user.first_name ?? "");
+      setEditLastName(user.last_name ?? "");
+      setEditBio(user.bio ?? "");
     }
   }, [user]);
 
@@ -35,6 +37,7 @@ export default function Home() {
         username: editUsername.trim(),
         first_name: editFirstName,
         last_name: editLastName,
+        bio: editBio,
       });
     } catch (err) {
       const ax = err as AxiosError<{ detail?: string }>;
@@ -152,6 +155,16 @@ export default function Home() {
                 value={editLastName}
                 onChange={(e) => setEditLastName(e.target.value)}
                 autoComplete="family-name"
+              />
+            </label>
+            <label>
+              Bio
+              <textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                maxLength={10_000}
+                rows={5}
+                placeholder="A few words about you"
               />
             </label>
             <button type="submit" className="btn">

@@ -1,10 +1,17 @@
+import random, string
+
 from django.db import models
 
 from .user import User
 
+# Add a random collective id, so that ids aren't predictable.
+def generate_collective_slug():
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
 # 'Group' is taken by Django defaults :/
 class Collective(models.Model):
+    slug = models.CharField(max_length=16, unique=True, default=generate_collective_slug)
+
     name = models.CharField(max_length=255)
     description = models.TextField(max_length=10_000)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -19,7 +26,8 @@ class Collective(models.Model):
 
     class Visibility(models.TextChoices):
         PUBLIC = "public"
-        PRIVATE = "private"
+        # Only accessible by URL
+        UNLISTED = "unlisted"
     visibility = models.CharField(
         choices=Visibility.choices, default=Visibility.PUBLIC
     )

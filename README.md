@@ -76,18 +76,18 @@ Current status: Implementing server, vibe-coded client
 * Profile management
   * ~~Username~~
   * ~~First & last name~~
-  * Public bio
+  * ~~Bio~~
   * Location (+ fuzzing)
 * Collective management
-  * Create/edit collective
-    * Require verified email
+  * ~~Create/edit collective~~
+    * ~~Require verified email~~
   * Collective location + area
-  * Collective visibility management
+  * ~~Collective visibility management~~
     * ~~Public~~
-    * Unlisted (only visible with link)
-      * Obfuscate collective links (don't use auto-incrementing id)
+    * ~~Unlisted (only visible with link)~~
+      * ~~Obfuscate collective links (don't use auto-incrementing id)~~
   * Collective content visiblity
-    * Only members see members
+    * ~~Only members see members~~
     * Only members see shared items
   * ~~Admission type management~~
     * ~~Open~~
@@ -95,6 +95,10 @@ Current status: Implementing server, vibe-coded client
   * ~~Roles in collectives~~
     * ~~Only admins can edit collective & change roles~~
     * ~~Admins and moderators can manage members~~
+* View user details
+  * Require mutual collective
+  * Only show mutual collectives
+  * Only show items in mutual collectives
 * Offer/request management
   * Create/edit offer/request
     * Require verified email

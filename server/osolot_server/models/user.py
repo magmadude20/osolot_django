@@ -24,6 +24,8 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     email_verified = models.BooleanField(default=False)
 
+    bio = models.TextField(blank=True, default="", max_length=10_000)
+
     REQUIRED_FIELDS = ["email"]
 
     class Meta:

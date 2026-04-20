@@ -5,12 +5,11 @@ from ninja import Router
 from ninja.errors import HttpError
 
 from ..api_builders.detail_builders import membership_detail_for_viewer
-from ..api_builders.summary_builders import collective_summary, membership_summary
+from ..api_builders.summary_builders import membership_summary
 from ..models import Collective, Membership
 from ..permissions.collective_permissions import (
     can_manage_member_roles,
     can_manage_memberships,
-    can_view_collective,
     membership_can_manage_members,
     user_visible_collective_members,
 )
@@ -30,28 +29,26 @@ collective_memberships_router = Router()
 # It could be used in the future for pagination.
 # At this point, it's already here and shouldn't be hurting anything, so leaving it.
 @collective_memberships_router.get(
-    "/{collective_id}/members",
+    "/{collective_slug}/members",
     response=list[MembershipSummary],
     tags=["collectives"],
 )
-def list_memberships(request, collective_id: int):
-    collective = get_object_or_404(Collective, id=collective_id)
+def list_memberships(request, collective_slug: str):
+    collective = get_object_or_404(Collective, slug=collective_slug)
     user = get_optional_user(request)
-    if not can_view_collective(user, collective):
-        raise HttpError(404, "Collective not found.")
 
     visible_members = user_visible_collective_members(user, collective)
     return [membership_summary(m) for m in visible_members]
 
 
 @collective_memberships_router.post(
-    "/{collective_id}/join",
+    "/{collective_slug}/join",
     response=MembershipDetail,
     auth=JWTAuth(),
     tags=["collectives"],
 )
-def join_collective(request, collective_id: int, data: JoinCollectiveRequest):
-    collective = get_object_or_404(Collective, id=collective_id)
+def join_collective(request, collective_slug: str, data: JoinCollectiveRequest):
+    collective = get_object_or_404(Collective, slug=collective_slug)
     user = request.auth
 
     if Membership.find_for(user, collective) is not None:
@@ -77,12 +74,12 @@ def join_collective(request, collective_id: int, data: JoinCollectiveRequest):
 
 
 @collective_memberships_router.get(
-    "/{collective_id}/membership/{user_id}",
+    "/{collective_slug}/membership/{user_id}",
     response=MembershipDetail,
     tags=["memberships"],
 )
-def get_membership(request, collective_id: int, user_id: int):
-    collective = get_object_or_404(Collective, id=collective_id)
+def get_membership(request, collective_slug: str, user_id: int):
+    collective = get_object_or_404(Collective, slug=collective_slug)
     viewer = get_optional_user(request)
 
     visible_user_membership = (
@@ -97,13 +94,13 @@ def get_membership(request, collective_id: int, user_id: int):
 
 
 @collective_memberships_router.put(
-    "/{collective_id}/membership/{user_id}",
+    "/{collective_slug}/membership/{user_id}",
     response=MembershipDetail,
     auth=JWTAuth(),
     tags=["memberships"],
 )
 def update_membership(
-    request, collective_id: int, user_id: int, data: UpdateMembershipRequest
+    request, collective_slug: str, user_id: int, data: UpdateMembershipRequest
 ):
     # Validate request
     if data.status is not None and data.status not in Membership.Status.values:
@@ -113,7 +110,7 @@ def update_membership(
 
     user_membership = get_object_or_404(
         Membership.objects.select_related("collective", "user"),
-        collective_id=collective_id,
+        collective__slug=collective_slug,
         user_id=user_id,
     )
     collective = user_membership.collective
@@ -179,13 +176,15 @@ def update_membership(
 
 
 @collective_memberships_router.delete(
-    "/{collective_id}/membership/{user_id}",
+    "/{collective_slug}/membership/{user_id}",
     response=MessageOut,
     auth=JWTAuth(),
     tags=["memberships"],
 )
-def delete_membership(request, collective_id: int, user_id: int):
-    user_membership = Membership.find_for_ids(user_id, collective_id)
+def delete_membership(request, collective_slug: str, user_id: int):
+    user_membership = Membership.find_for_user_and_collective_slug(
+        user_id, collective_slug
+    )
     if user_membership is None:
         raise HttpError(404, "Membership not found.")
     collective = user_membership.collective

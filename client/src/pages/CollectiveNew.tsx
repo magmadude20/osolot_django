@@ -11,7 +11,7 @@ export default function CollectiveNew() {
   const { user, loading: authLoading } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState("private");
+  const [visibility, setVisibility] = useState("unlisted");
   const [admissionType, setAdmissionType] = useState("open");
   const [applicationQuestion, setApplicationQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function CollectiveNew() {
         admission_type: admissionType,
         application_question: applicationQuestion,
       });
-      navigate(`/collectives/${created.summary.id}`, { replace: true });
+      navigate(`/collectives/${created.summary.slug}`, { replace: true });
     } catch {
       setError(
         "Could not create collective. You may need to log in, or check the fields.",
@@ -105,8 +105,8 @@ export default function CollectiveNew() {
             value={visibility}
             onChange={(e) => setVisibility(e.target.value)}
           >
-            <option value="private">Private</option>
-            <option value="public">Public</option>
+            <option value="unlisted">Unlisted (not in directory; join with link)</option>
+            <option value="public">Public (listed for everyone)</option>
           </select>
         </label>
         <label>
