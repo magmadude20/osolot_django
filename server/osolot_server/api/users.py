@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 
@@ -87,5 +88,5 @@ def list_my_memberships(request):
 )
 def get_user_profile(request, username: str):
     viewer = get_optional_user(request)
-    user = User.objects.get(username=username)
+    user = get_object_or_404(User, username=username)
     return user_detail_for_viewer(user, viewer)

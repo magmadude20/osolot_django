@@ -4,26 +4,27 @@ This project currently has no pytest configuration, so we will start with **Djan
 
 ## How tests are run
 
-From the repo root:
+From the repo root (recommended: **test settings** so SQLite and `ALLOWED_HOSTS` match the Django test client, independent of `.env`):
 
 ```bash
 cd server
-.venv/bin/python manage.py test
+.venv/bin/python manage.py test tests --settings=config.settings_test
 ```
 
 Run a subset (examples):
 
 ```bash
 cd server
-.venv/bin/python manage.py test tests
-.venv/bin/python manage.py test tests.test_health
-.venv/bin/python manage.py test tests.api.test_auth
+.venv/bin/python manage.py test tests.test_health --settings=config.settings_test
+.venv/bin/python manage.py test tests.api.test_auth --settings=config.settings_test
 ```
 
 Notes:
 
-- Tests run against Django's test database (SQLite by default per `config.settings` unless `DATABASE_BACKEND` is set).
+- `config.settings_test` forces SQLite (`:memory:`), `DEBUG=False`, drops debug toolbar from apps/middleware, and extends `ALLOWED_HOSTS` for `testserver`.
 - For deterministic results, tests should not rely on external services.
+
+Shared helpers live in `tests/base.py`
 
 ## Tests directory layout
 
@@ -34,7 +35,7 @@ server/tests/
   __init__.py
   test_plan.md
 
-  conftest.py                 # shared helpers/fixtures (when needed)
+  base.py                     # shared helpers
 
   test_health.py              # basic sanity checks
 
@@ -57,47 +58,43 @@ Guidelines:
 - Add **unit tests** for pure permission/builder logic (fast, isolated).
 - Keep test names and file names explicit: `test_<topic>.py`.
 
-## Initial tests to add (first batch)
+## Initial tests
 
-These are the first tests we will implement next, in roughly this order.
+### 1) Health/smoke — `tests/test_health.py`
 
-### 1) Health/smoke test
+- OpenAPI JSON responds with a valid document.
+- `GET /api/collectives/` is not a 5xx.
 
-- `tests/test_health.py`
-  - **Goal**: ensure the Django app boots and the Ninja API root is reachable.
-  - **Checks**: a simple request using Django’s test client returns a non-500 response.
+### 2) Auth API — `tests/api/test_auth.py`
 
-### 2) Auth API basics
+- Login returns `access` / `refresh`.
+- Invalid password → 401.
+- `GET /api/users/my/profile` → 401 without token; 200 with expected fields when authenticated.
 
-- `tests/api/test_auth.py`
-  - **Login**: valid credentials return access/refresh tokens.
-  - **Login failure**: invalid credentials return 401.
-  - **Current user** (if exposed): authenticated request returns the expected user shape.
+### 3) Collectives API — `tests/api/test_collectives.py`
 
-### 3) Collectives API basics
+- Create requires auth; verified user gets `slug` and admin `members` row; unverified email → 403.
+- Anonymous list: public collectives only (unlisted member-only omitted); member sees their unlisted collective.
+- Invalid visibility → 400; unknown slug detail → 404; duplicate slug at DB level → `IntegrityError`.
 
-- `tests/api/test_collectives.py`
-  - **Create collective**: authenticated user can create; response includes `slug` and expected defaults.
-  - **List/detail visibility**: public collectives visible to anonymous users; private collectives are not.
-  - **Slug behavior**: slugs are unique; invalid slugs rejected (if validated by schema/model).
+### 4) Memberships API — `tests/api/test_memberships.py`
 
-### 4) Membership flows
+- Open admission → join is `active`; application admission → `pending`.
+- Second join → 400; member may `DELETE` own membership; outsider cannot delete another’s membership.
+- Member cannot `PUT` another user’s role; admin can approve `pending` → `active`.
 
-- `tests/api/test_memberships.py`
-  - **Join**: join rules enforced (open vs approval-only, etc. as implemented).
-  - **Leave**: member can leave; non-member cannot.
-  - **Role checks**: owner/admin vs regular member permissions for membership management endpoints.
+### 5) Users API — `tests/api/test_users.py`
 
-### 5) Permission unit tests (fast)
+- Unknown username → 404.
+- Authenticated viewer sees `mutual_collectives` including a shared collective when both have active memberships.
 
-- `tests/permissions/test_collective_permissions.py`
-  - **Viewer-based access**: `can_view_*` style rules return correct values for anonymous/member/admin.
+### 6) Permission units — `tests/permissions/`
 
-- `tests/permissions/test_user_permissions.py`
-  - **Self vs other**: viewing/editing user details respects the intended rules.
+- `test_collective_permissions.py`: anonymous visible collectives; non-member sees no members; pending sees only self; admin/mod/member manage flags.
+- `test_user_permissions.py`: `mutual_collectives_with_user` empty without viewer; shared active membership returns the collective.
 
 ## Definition of done for the first iteration
 
-- `server/tests/` exists and tests run in CI/dev with `manage.py test`.
+- `server/tests/` exists and tests run in CI/dev with `manage.py test tests --settings=config.settings_test`.
 - First batch focuses on **critical authentication and visibility** behavior.
 - Tests are deterministic and don’t require external services.

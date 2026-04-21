@@ -358,11 +358,6 @@
         },
         "tags": [
           "users"
-        ],
-        "security": [
-          {
-            "JWTAuth": []
-          }
         ]
       }
     },

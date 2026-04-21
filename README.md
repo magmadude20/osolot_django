@@ -128,6 +128,7 @@ Current status: Implementing server, vibe-coded client
   * Whatever WSGI or ASGI is
   * Hosting, etc
   * Rewrite client
+  * Somewhat reasonable test coverage
 
 ### Future (in rough order)
 
