@@ -2,6 +2,7 @@ from django.db.models import Q, QuerySet
 
 from ..models import Post, User
 from ..permissions.membership_permissions import all_mutual_memberships_with_viewer
+from ..permissions.user_permissions import active_friendships_targeting_user
 
 # Query Sets
 
@@ -22,4 +23,6 @@ def user_visible_posts(viewer: User | None) -> QuerySet[Post]:
                 viewer
             ).values_list("collective", flat=True)
         )
+        # Users can see posts shared with them through active friendships.
+        | Q(shared_friendships__in=active_friendships_targeting_user(viewer))
     ).distinct()

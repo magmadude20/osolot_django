@@ -6,34 +6,13 @@
  * OpenAPI spec version: 0.0.1
  */
 import { customInstance } from './axios-instance';
-export type PostType = typeof PostType[keyof typeof PostType];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const PostType = {
-  offer: 'offer',
-  request: 'request',
-} as const;
-
-export interface PostSettings {
-  /** @maxLength 10000 */
-  description?: string;
-  public: boolean;
-  share_with_new_collectives_default: boolean;
-  shared_collective_slugs: string[];
-  /**
-   * @minLength 1
-   * @maxLength 255
-   */
-  title: string;
-  type?: PostType;
-}
-
-export type PostSettingsPatchType = PostType | null;
-
 export type PostSettingsPatchTitle = string | null;
 
+export type PostSettingsPatchSharedFriendUsernames = string[] | null;
+
 export type PostSettingsPatchSharedCollectiveSlugs = string[] | null;
+
+export type PostSettingsPatchShareWithNewFriendsDefault = boolean | null;
 
 export type PostSettingsPatchShareWithNewCollectivesDefault = boolean | null;
 
@@ -45,21 +24,51 @@ export interface PostSettingsPatch {
   description?: PostSettingsPatchDescription;
   public?: PostSettingsPatchPublic;
   share_with_new_collectives_default?: PostSettingsPatchShareWithNewCollectivesDefault;
+  share_with_new_friends_default?: PostSettingsPatchShareWithNewFriendsDefault;
   shared_collective_slugs?: PostSettingsPatchSharedCollectiveSlugs;
+  shared_friend_usernames?: PostSettingsPatchSharedFriendUsernames;
   title?: PostSettingsPatchTitle;
   type?: PostSettingsPatchType;
 }
 
-export type PostDetailSharedCollectives = CollectiveSummary[] | null;
+export type PostType = typeof PostType[keyof typeof PostType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const PostType = {
+  offer: 'offer',
+  request: 'request',
+} as const;
+
+export type PostSettingsPatchType = PostType | null;
+
+export type PostSettingsSharedFriendUsernames = string[] | null;
+
+export type PostSettingsSharedCollectiveSlugs = string[] | null;
+
+export interface PostSettings {
+  /** @maxLength 10000 */
+  description?: string;
+  public: boolean;
+  share_with_new_collectives_default: boolean;
+  share_with_new_friends_default: boolean;
+  shared_collective_slugs?: PostSettingsSharedCollectiveSlugs;
+  shared_friend_usernames?: PostSettingsSharedFriendUsernames;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  title: string;
+  type?: PostType;
+}
+
+export type PostDetailSharing = PostSharingDetail | null;
 
 export interface PostDetail {
   created_at: string;
   description: string;
-  /** The user who owns the post. */
   owner: UserSummary;
-  public?: boolean;
-  share_with_new_collectives_default?: boolean;
-  shared_collectives?: PostDetailSharedCollectives;
+  sharing?: PostDetailSharing;
   /** @maxLength 16 */
   slug?: string;
   /** @maxLength 255 */
@@ -69,25 +78,10 @@ export interface PostDetail {
   updated_at: string;
 }
 
-export interface PostSummary {
-  public?: boolean;
-  /** @maxLength 16 */
-  slug?: string;
-  /** @maxLength 255 */
-  title: string;
-  /** @maxLength 31 */
-  type?: string;
-}
-
 /**
  * Admin and moderators only.
  */
 export type UpdateMembershipRequestStatus = Status | null;
-
-/**
- * Admin only.
- */
-export type UpdateMembershipRequestRole = Role | null;
 
 /**
  * Requesting user only.
@@ -99,6 +93,8 @@ export interface UpdateMembershipRequest {
   application_message?: UpdateMembershipRequestApplicationMessage;
   /** Admin only. */
   role?: UpdateMembershipRequestRole;
+  /** Requesting user only. */
+  shared_post_slugs?: string[];
   /** Admin and moderators only. */
   status?: UpdateMembershipRequestStatus;
 }
@@ -106,9 +102,13 @@ export interface UpdateMembershipRequest {
 export interface JoinCollectiveRequest {
   /** @maxLength 10000 */
   application_message?: string;
+  /** Posts to share with the collective. */
+  shared_post_slugs?: string[];
 }
 
 export type MembershipDetailUpdatedAt = string | null;
+
+export type MembershipDetailSharedPosts = PostSummary[] | null;
 
 export type MembershipDetailJoinedAt = string | null;
 
@@ -123,6 +123,7 @@ export interface MembershipDetail {
   applied_at?: MembershipDetailAppliedAt;
   approved_by?: MembershipDetailApprovedBy;
   joined_at?: MembershipDetailJoinedAt;
+  shared_posts?: MembershipDetailSharedPosts;
   summary: MembershipSummary;
   updated_at?: MembershipDetailUpdatedAt;
 }
@@ -143,7 +144,42 @@ export interface CollectiveSettings {
   visibility?: string;
 }
 
+export interface CollectiveDetail {
+  application_question: string;
+  members: MembershipSummary[];
+  summary: CollectiveSummary;
+  /** Posts shared into this collective (from active members), visible to the viewer. */
+  shared_posts?: PostSummary[];
+}
+
 export type UserDetailBio = string | null;
+
+export interface PostSharingSummary {
+  public?: boolean;
+  share_with_new_collectives_default?: boolean;
+  share_with_new_friends_default?: boolean;
+}
+
+export type PostSummarySharing = PostSharingSummary | null;
+
+export interface PostSummary {
+  owner: UserSummary;
+  sharing?: PostSummarySharing;
+  /** @maxLength 16 */
+  slug?: string;
+  /** @maxLength 255 */
+  title: string;
+  /** @maxLength 31 */
+  type?: string;
+}
+
+export interface UserDetail {
+  bio?: UserDetailBio;
+  mutual_collectives: CollectiveSummary[];
+  mutual_friends: UserSummary[];
+  posts_shared_with_me: PostSummary[];
+  summary: UserSummary;
+}
 
 export type UserSummaryLastName = string | null;
 
@@ -157,6 +193,14 @@ export interface UserSummary {
    * @maxLength 150
    */
   username: string;
+}
+
+export interface PostSharingDetail {
+  public?: boolean;
+  share_with_new_collectives_default?: boolean;
+  share_with_new_friends_default?: boolean;
+  shared_collectives: CollectiveSummary[];
+  shared_friends: UserSummary[];
 }
 
 export type Status = typeof Status[keyof typeof Status];
@@ -178,6 +222,11 @@ export const Role = {
   member: 'member',
 } as const;
 
+/**
+ * Admin only.
+ */
+export type UpdateMembershipRequestRole = Role | null;
+
 export interface CollectiveSummary {
   admission_type?: string;
   /** @maxLength 10000 */
@@ -189,23 +238,11 @@ export interface CollectiveSummary {
   visibility?: string;
 }
 
-export interface UserDetail {
-  bio?: UserDetailBio;
-  mutual_collectives: CollectiveSummary[];
-  summary: UserSummary;
-}
-
 export interface MembershipSummary {
   collective: CollectiveSummary;
   role: Role;
   status: Status;
   user: UserSummary;
-}
-
-export interface CollectiveDetail {
-  application_question: string;
-  members: MembershipSummary[];
-  summary: CollectiveSummary;
 }
 
 export type UpdateProfileRequestLastName = string | null;
@@ -465,6 +502,30 @@ const osolotServerApiUsersListMyMemberships = (
     }
   
 /**
+ * @summary List My Friends
+ */
+const osolotServerApiUsersListMyFriends = (
+    
+ ) => {
+      return customInstance<UserSummary[]>(
+      {url: `/api/users/my/friends`, method: 'GET'
+    },
+      );
+    }
+  
+/**
+ * @summary List My Friend Requests
+ */
+const osolotServerApiUsersListMyFriendRequests = (
+    
+ ) => {
+      return customInstance<UserSummary[]>(
+      {url: `/api/users/my/friend-requests`, method: 'GET'
+    },
+      );
+    }
+  
+/**
  * @summary Get User Profile
  */
 const osolotServerApiUsersGetUserProfile = (
@@ -472,6 +533,32 @@ const osolotServerApiUsersGetUserProfile = (
  ) => {
       return customInstance<UserDetail>(
       {url: `/api/users/${username}`, method: 'GET'
+    },
+      );
+    }
+  
+/**
+ * Request to add a user as a friend, or accept a friend request from a user.
+ * @summary Add Friend
+ */
+const osolotServerApiUsersAddFriend = (
+    username: string,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/users/${username}/friendship`, method: 'POST'
+    },
+      );
+    }
+  
+/**
+ * Remove a user as a friend.
+ * @summary Remove Friend
+ */
+const osolotServerApiUsersRemoveFriend = (
+    username: string,
+ ) => {
+      return customInstance<MessageOut>(
+      {url: `/api/users/${username}/friendship`, method: 'DELETE'
     },
       );
     }
@@ -613,13 +700,39 @@ const osolotServerApiCollectiveMembershipsDeleteMembership = (
   
 /**
  * List posts owned by the current user.
+ * @summary List My Posts
+ */
+const osolotServerApiPostsListMyPosts = (
+    
+ ) => {
+      return customInstance<PostSummary[]>(
+      {url: `/api/posts/mine`, method: 'GET'
+    },
+      );
+    }
+  
+/**
  * @summary List Posts
  */
 const osolotServerApiPostsListPosts = (
     
  ) => {
       return customInstance<PostSummary[]>(
-      {url: `/api/posts/mine`, method: 'GET'
+      {url: `/api/posts/`, method: 'GET'
+    },
+      );
+    }
+  
+/**
+ * @summary Create Post
+ */
+const osolotServerApiPostsCreatePost = (
+    postSettings: PostSettings,
+ ) => {
+      return customInstance<PostDetail>(
+      {url: `/api/posts/`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: postSettings
     },
       );
     }
@@ -663,21 +776,7 @@ const osolotServerApiPostsDeletePost = (
       );
     }
   
-/**
- * @summary Create Post
- */
-const osolotServerApiPostsCreatePost = (
-    postSettings: PostSettings,
- ) => {
-      return customInstance<PostDetail>(
-      {url: `/api/posts/`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: postSettings
-    },
-      );
-    }
-  
-return {osolotServerApiAuthRegister,osolotServerApiAuthLogin,osolotServerApiAuthRefresh,osolotServerApiAuthPasswordResetRequest,osolotServerApiAuthPasswordResetConfirm,osolotServerApiAuthEmailVerificationRequest,osolotServerApiAuthEmailVerificationConfirm,osolotServerApiUsersMe,osolotServerApiUsersUpdateMe,osolotServerApiUsersListMyMemberships,osolotServerApiUsersGetUserProfile,osolotServerApiCollectivesListCollectives,osolotServerApiCollectivesCreateCollective,osolotServerApiCollectivesGetCollective,osolotServerApiCollectivesUpdateCollective,osolotServerApiCollectivesDeleteCollective,osolotServerApiCollectiveMembershipsListMemberships,osolotServerApiCollectiveMembershipsJoinCollective,osolotServerApiCollectiveMembershipsGetMembership,osolotServerApiCollectiveMembershipsUpdateMembership,osolotServerApiCollectiveMembershipsDeleteMembership,osolotServerApiPostsListPosts,osolotServerApiPostsGetPost,osolotServerApiPostsUpdatePost,osolotServerApiPostsDeletePost,osolotServerApiPostsCreatePost}};
+return {osolotServerApiAuthRegister,osolotServerApiAuthLogin,osolotServerApiAuthRefresh,osolotServerApiAuthPasswordResetRequest,osolotServerApiAuthPasswordResetConfirm,osolotServerApiAuthEmailVerificationRequest,osolotServerApiAuthEmailVerificationConfirm,osolotServerApiUsersMe,osolotServerApiUsersUpdateMe,osolotServerApiUsersListMyMemberships,osolotServerApiUsersListMyFriends,osolotServerApiUsersListMyFriendRequests,osolotServerApiUsersGetUserProfile,osolotServerApiUsersAddFriend,osolotServerApiUsersRemoveFriend,osolotServerApiCollectivesListCollectives,osolotServerApiCollectivesCreateCollective,osolotServerApiCollectivesGetCollective,osolotServerApiCollectivesUpdateCollective,osolotServerApiCollectivesDeleteCollective,osolotServerApiCollectiveMembershipsListMemberships,osolotServerApiCollectiveMembershipsJoinCollective,osolotServerApiCollectiveMembershipsGetMembership,osolotServerApiCollectiveMembershipsUpdateMembership,osolotServerApiCollectiveMembershipsDeleteMembership,osolotServerApiPostsListMyPosts,osolotServerApiPostsListPosts,osolotServerApiPostsCreatePost,osolotServerApiPostsGetPost,osolotServerApiPostsUpdatePost,osolotServerApiPostsDeletePost}};
 export type OsolotServerApiAuthRegisterResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRegister']>>>
 export type OsolotServerApiAuthLoginResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthLogin']>>>
 export type OsolotServerApiAuthRefreshResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiAuthRefresh']>>>
@@ -688,7 +787,11 @@ export type OsolotServerApiAuthEmailVerificationConfirmResult = NonNullable<Awai
 export type OsolotServerApiUsersMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersMe']>>>
 export type OsolotServerApiUsersUpdateMeResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersUpdateMe']>>>
 export type OsolotServerApiUsersListMyMembershipsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersListMyMemberships']>>>
+export type OsolotServerApiUsersListMyFriendsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersListMyFriends']>>>
+export type OsolotServerApiUsersListMyFriendRequestsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersListMyFriendRequests']>>>
 export type OsolotServerApiUsersGetUserProfileResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersGetUserProfile']>>>
+export type OsolotServerApiUsersAddFriendResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersAddFriend']>>>
+export type OsolotServerApiUsersRemoveFriendResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiUsersRemoveFriend']>>>
 export type OsolotServerApiCollectivesListCollectivesResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectivesListCollectives']>>>
 export type OsolotServerApiCollectivesCreateCollectiveResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectivesCreateCollective']>>>
 export type OsolotServerApiCollectivesGetCollectiveResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectivesGetCollective']>>>
@@ -699,8 +802,9 @@ export type OsolotServerApiCollectiveMembershipsJoinCollectiveResult = NonNullab
 export type OsolotServerApiCollectiveMembershipsGetMembershipResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectiveMembershipsGetMembership']>>>
 export type OsolotServerApiCollectiveMembershipsUpdateMembershipResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectiveMembershipsUpdateMembership']>>>
 export type OsolotServerApiCollectiveMembershipsDeleteMembershipResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiCollectiveMembershipsDeleteMembership']>>>
+export type OsolotServerApiPostsListMyPostsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsListMyPosts']>>>
 export type OsolotServerApiPostsListPostsResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsListPosts']>>>
+export type OsolotServerApiPostsCreatePostResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsCreatePost']>>>
 export type OsolotServerApiPostsGetPostResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsGetPost']>>>
 export type OsolotServerApiPostsUpdatePostResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsUpdatePost']>>>
 export type OsolotServerApiPostsDeletePostResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsDeletePost']>>>
-export type OsolotServerApiPostsCreatePostResult = NonNullable<Awaited<ReturnType<ReturnType<typeof getOsolotAPI>['osolotServerApiPostsCreatePost']>>>

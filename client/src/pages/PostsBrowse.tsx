@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { PostDetail, PostSummary } from "../api/generated";
 import { PostType } from "../api/generated";
-import { useAuth } from "../auth/AuthContext";
 import {
-  fetchPostDetail,
-  fetchVisiblePosts,
-  isAbortError,
-  isValidPostSlug,
+    fetchPostDetail,
+    fetchVisiblePosts,
+    isAbortError,
+    isValidPostSlug,
 } from "../api/posts-queries";
 import "../App.css";
+import { useAuth } from "../auth/AuthContext";
 
 export default function PostsBrowse() {
   const { postSlug } = useParams<{ postSlug?: string }>();
@@ -112,9 +112,7 @@ export default function PostsBrowse() {
                         {p.title}
                       </button>
                       <div className="post-list-meta">
-                        {p.public ? (
-                          <span className="badge public">public</span>
-                        ) : null}
+                        <span className="muted small">@{p.owner.username}</span>
                         {slug ? (
                           <span className="muted small">slug: {slug}</span>
                         ) : null}
@@ -146,7 +144,7 @@ export default function PostsBrowse() {
             <>
               <p className="muted">
                 <span className="badge">{detail.type ?? PostType.offer}</span>
-                {detail.public ? (
+                {detail.sharing?.public ? (
                   <span className="badge public">public</span>
                 ) : null}
               </p>

@@ -4,6 +4,7 @@ from django.db import models
 
 
 class User(AbstractUser):
+    REQUIRED_FIELDS = ["email"]
 
     username_validator = RegexValidator(
         regex=r"^[\w.-]{3,31}\Z",
@@ -26,7 +27,9 @@ class User(AbstractUser):
 
     bio = models.TextField(blank=True, default="", max_length=10_000)
 
-    REQUIRED_FIELDS = ["email"]
+    friends = models.ManyToManyField(
+        "self", through="Friendship", symmetrical=False
+    )
 
     class Meta:
         # Security note: To prevent edge cases, add a database-level check that emails

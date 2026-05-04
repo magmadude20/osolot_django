@@ -73,48 +73,51 @@ Current status: Implementing server, vibe-coded client
   * ~~Create account~~
   * ~~Forgot password~~
   * ~~Verify email~~
-* Profile management
+* ~~Profile management~~
   * ~~Username~~
   * ~~First & last name~~
   * ~~Bio~~
-  * Location (+ fuzzing)
-* Collective management
+* ~~Collective management~~
   * ~~Create/edit collective~~
     * ~~Require verified email~~
-  * Collective location + area
   * ~~Collective visibility management~~
     * ~~Public~~
     * ~~Unlisted (only visible with link)~~
       * ~~Obfuscate collective links (don't use auto-incrementing id)~~
-  * Collective content visiblity
-    * ~~Only members see members~~
-    * Only members see shared items
+  * ~~Only members see members~~
   * ~~Admission type management~~
     * ~~Open~~
     * ~~Request/approve~~
   * ~~Roles in collectives~~
     * ~~Only admins can edit collective & change roles~~
     * ~~Admins and moderators can manage members~~
+* Collective membership
+  * ~~Apply/join/leave collective~~
+  * ~~Select items to share when joining collective~~
+  * ~~Show/edit items I'm sharing~~
+  * Show others' items shared in collective
 * View user details
   * ~~Get user profile~~
-  * ~~Only show mutual collectives~~
-  * Only show items in mutual collectives
+  * ~~Show mutual collectives~~
+  * ~~Show mutual friends~~
+  * ~~Request/confirm/delete friend~~
+  * Select items to share when adding friend
+  * Show/edit items I'm sharing
+  * ~~Show items they're sharing~~
 * Offer/request management
   * ~~Create/edit offer/request~~
     * ~~Require verified email~~
   * ~~Sharing configuration~~
     * ~~Public~~
     * ~~(Specific) collectives~~
+    * ~~(Specific) friends~~
     * ~~Hidden~~
 * View offers/requests
   * ~~List view~~
-  * Map view
   * Search / filter by
-    * Location (default)
     * Collective
     * User
     * Title
-    * Category
 * Contact owners
   * Require verified email
   * Send email w/ replyto
@@ -141,10 +144,14 @@ This includes a lot of stuff that probably won't be implemented for like a year+
   * Collective photos
   * Offer photos
   * Depending on cost, add a donation page
-* Friends
-  * Request/confirm friend
-  * Sharing with friends
-  * Friend circles / sharing presets
+* Locations
+  * Configure
+    * User location + fuzzing
+    * Collective location + area
+    * Item location
+  * Usage
+    * Map view
+    * Search/filter by location
 * Android/iOS app
   * Webview to start
 * Notifications
@@ -155,7 +162,7 @@ This includes a lot of stuff that probably won't be implemented for like a year+
   * Collectives
     * Visiblity
       * Private: members-only
-      * Local: based on collective + user location
+      * Local: based on collective area + user location
     * Invite-only admission
     * Content visiblity
   * Users
@@ -170,7 +177,8 @@ This includes a lot of stuff that probably won't be implemented for like a year+
         * Bio
   * Offers/requests
     * Categories
-    * Sharing controls: (specific) friends, mutuals(?)
+  * Sharing controls
+    * Sharing preset / circles / labels
     * Anonymous offers/requests
 * Bad actors
   * Report users or posts
@@ -186,6 +194,7 @@ This includes a lot of stuff that probably won't be implemented for like a year+
   * Add needed items to an event (e.g. potluck)
   * Respond to event requests
   * Add additional "I'm bringing x"
+  * Maybe: option to not require account (e.g. just a username)
 * Show entity relationship to viewer
   * Collective
     * Role
@@ -202,6 +211,7 @@ This includes a lot of stuff that probably won't be implemented for like a year+
     * Allow requests from certain other collectives
     * Show offers to other collectives
   * View offers from other collectives in the area
+* GraphQL API
 * Server admin enhancements
   * Surface consistency problems, e.g. collective w/o admin
   * Alternative contact methods

@@ -33,8 +33,21 @@ class MembershipSummary(Schema):
     role: Membership.Role
 
 
+class PostSharingSummary(ModelSchema):
+    class Meta:
+        model = Post
+        fields = [
+            "public",
+            "share_with_new_collectives_default",
+            "share_with_new_friends_default",
+        ]
+
+
 class PostSummary(ModelSchema):
     owner: UserSummary
+
+    # Only populated for a user's own posts
+    sharing: PostSharingSummary | None = None
 
     class Meta:
         model = Post
@@ -44,14 +57,24 @@ class PostSummary(ModelSchema):
 ### Detail Schemas, for display of a single entity.
 
 
-class PostDetail(ModelSchema):
-    owner: UserSummary = Field(
-        ..., read_only=True, description="The user who owns the post."
-    )
+class PostSharingDetail(ModelSchema):
+    shared_collectives: list[CollectiveSummary]
+    shared_friends: list[UserSummary]
 
-    # The collectives that this post is shared with.
+    class Meta:
+        model = Post
+        fields = [
+            "public",
+            "share_with_new_collectives_default",
+            "share_with_new_friends_default",
+        ]
+
+
+class PostDetail(ModelSchema):
+    owner: UserSummary
+
     # Only populated for a user's own posts
-    shared_collectives: list[CollectiveSummary] | None = None
+    sharing: PostSharingDetail | None = None
 
     class Meta:
         model = Post
@@ -59,14 +82,10 @@ class PostDetail(ModelSchema):
             "slug",
             "created_at",
             "updated_at",
-            "public",
             "type",
             "title",
             "description",
-            # Only populated for a user's own posts
-            "share_with_new_collectives_default",
         ]
-        optional = ["share_with_new_collectives_default"]
 
 
 class UserDetail(Schema):
@@ -74,6 +93,9 @@ class UserDetail(Schema):
     bio: str | None = None
     # List of collectives in common with the viewer.
     mutual_collectives: list[CollectiveSummary]
+    # List of friends in common with the viewer.
+    mutual_friends: list[UserSummary]
+    posts_shared_with_me: list[PostSummary]
     # Future: location, relation to viewer, mutuals
 
 
@@ -81,11 +103,17 @@ class CollectiveDetail(Schema):
     summary: CollectiveSummary
     members: list[MembershipSummary]
     application_question: str
+
+    # Posts shared with the collective from all users.
+    shared_posts: list[PostSummary]
     # Future: location, viewer's friends in group
 
 
 class MembershipDetail(Schema):
     summary: MembershipSummary
+
+    # Posts shared through this membership
+    shared_posts: list[PostSummary] | None = None
 
     # Fields may be dropped depending on the user's role.
     application_message: str | None = None
@@ -189,6 +217,10 @@ class CollectiveSettings(ModelSchema):
 
 class JoinCollectiveRequest(Schema):
     application_message: str = Field("", max_length=10_000)
+    shared_post_slugs: list[str] = Field(
+        [],
+        description=("Posts to share with the collective."),
+    )
 
 
 class UpdateMembershipRequest(Schema):
@@ -196,6 +228,10 @@ class UpdateMembershipRequest(Schema):
         None,
         max_length=10_000,
         description="Requesting user only.",
+    )
+    shared_post_slugs: list[str] | None = Field(
+        None,
+        description=("Requesting user only."),
     )
     status: Membership.Status | None = Field(
         None, description="Admin and moderators only."
@@ -212,8 +248,8 @@ class PostSettings(Schema):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field("", max_length=10_000)
 
-    # Only visible for a user's own posts:
-
     public: bool
     share_with_new_collectives_default: bool
-    shared_collective_slugs: list[str]
+    shared_collective_slugs: list[str] | None = None
+    share_with_new_friends_default: bool
+    shared_friend_usernames: list[str] | None = None

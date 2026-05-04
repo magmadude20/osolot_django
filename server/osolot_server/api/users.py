@@ -1,17 +1,18 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 
+from ..api_builders.detail_builders import user_detail_for_viewer
 from ..api_builders.exceptions import validation_error_to_http_error
 from ..api_builders.summary_builders import membership_summary
-from ..api_builders.detail_builders import user_detail_for_viewer
-from ..models import Membership
+from ..models import Friendship, Membership
 from ..security import JWTAuth, get_optional_user
 from .schemas import (
     MembershipSummary,
+    MessageOut,
     UpdateProfileRequest,
     UserDetail,
     UserProfile,
@@ -84,9 +85,113 @@ def list_my_memberships(request):
 
 
 @users_router.get(
-    "/{username}", response=UserDetail, tags=["users"]
+    "/my/friends", response=list[UserSummary], auth=JWTAuth(), tags=["users"]
 )
+def list_my_friends(request):
+    user = request.auth
+    friends = Friendship.objects.filter(
+        source=user, status=Friendship.FriendshipStatus.ACTIVE
+    ).select_related("target")
+    return [UserSummary.from_orm(f.target) for f in friends]
+
+
+@users_router.get(
+    "/my/friend-requests", response=list[UserSummary], auth=JWTAuth(), tags=["users"]
+)
+def list_my_friend_requests(request):
+    user = request.auth
+    friend_requests = Friendship.objects.filter(
+        target=user, status=Friendship.FriendshipStatus.REQUESTED
+    ).select_related("source")
+    return [UserSummary.from_orm(f.source) for f in friend_requests]
+
+
+@users_router.get("/{username}", response=UserDetail, tags=["users"])
 def get_user_profile(request, username: str):
     viewer = get_optional_user(request)
     user = get_object_or_404(User, username=username)
     return user_detail_for_viewer(user, viewer)
+
+
+# TODO: GET /{username}/relationship, with details on how the user is related to viewer
+# Friendship status, mutual collectives, mutual friends, etc.
+
+
+@users_router.post(
+    "/{username}/friendship",
+    response=MessageOut,
+    auth=JWTAuth(),
+    tags=["users"],
+    description="Request to add a user as a friend, or accept a friend request from a user.",
+)
+def add_friend(request, username: str):
+    source = request.auth
+    target = get_object_or_404(User, username=username)
+
+    if source == target:
+        raise HttpError(400, "You cannot add yourself as a friend.")
+
+    existing_friendship = Friendship.objects.filter(
+        source=source, target=target
+    ).first()
+    if existing_friendship is not None:
+        if existing_friendship.status == Friendship.FriendshipStatus.REQUESTED:
+            raise HttpError(400, "You've already sent a friend request to this user.")
+        # Status is ACTIVE
+        raise HttpError(400, "You're already friends!")
+
+    # If `target` has a PENDING request, accept it.
+    target_request = Friendship.objects.filter(source=target, target=source).first()
+    if target_request is not None:
+        # 1. Update the target->source friendship to ACTIVE
+        # 2. Create an ACTIVE source->target friendship
+        with transaction.atomic():
+            target_request.status = Friendship.FriendshipStatus.ACTIVE
+            target_request.save()
+            Friendship.objects.create(
+                source=source, target=target, status=Friendship.FriendshipStatus.ACTIVE
+            )
+        # TODO: Send notification to target
+        return MessageOut(message="Friend request accepted.")
+    else:
+        # Create a PENDING source->target friendship
+        Friendship.objects.create(
+            source=source, target=target, status=Friendship.FriendshipStatus.REQUESTED
+        )
+        # TODO: Send notification to target
+        return MessageOut(message="Friend request sent.")
+
+
+@users_router.delete(
+    "/{username}/friendship",
+    response=MessageOut,
+    auth=JWTAuth(),
+    tags=["users"],
+    description="Remove a user as a friend.",
+)
+def remove_friend(request, username: str):
+    source = request.auth
+    target = get_object_or_404(User, username=username)
+
+    # Remove both source->target and target->source friendships.
+    # Delete() returns a tuple of (number of rows deleted, row deletion details)
+    # See: https://docs.djangoproject.com/en/6.0/topics/db/queries/#deleting-objects
+    with transaction.atomic():
+        source_deleted_count, _ = Friendship.objects.filter(
+            source=source, target=target
+        ).delete()
+
+        target_deleted_count, _ = Friendship.objects.filter(
+            source=target, target=source
+        ).delete()
+
+    if source_deleted_count == 0 and target_deleted_count == 0:
+        return MessageOut(message="Friend not found.")
+
+    if target_deleted_count == 0:
+        return MessageOut(message="Removed your friend request.")
+
+    if source_deleted_count == 0:
+        return MessageOut(message="Removed their friend request.")
+
+    return MessageOut(message="Friend removed.")

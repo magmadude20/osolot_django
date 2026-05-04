@@ -3,6 +3,7 @@ import string
 
 from django.db import models
 
+from ..models.friendship import Friendship
 from ..models.membership import Membership
 from .user import User
 
@@ -25,18 +26,9 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Sharing settings
-    share_with_new_collectives_default = models.BooleanField(default=True)
-    # TODO: Add friends
-    # share_with_new_friends_default = models.BooleanField(default=True)
-
-    # Whether the post is public.
-    public = models.BooleanField(default=False)
-
-    # Memberships that this post is shared to
-    shared_memberships = models.ManyToManyField(Membership, related_name="shared_posts")
-
     # Post info visible to other users.
+
+    title = models.CharField(max_length=255)
     class PostType(models.TextChoices):
         OFFER = "offer"
         REQUEST = "request"
@@ -44,9 +36,23 @@ class Post(models.Model):
     type = models.CharField(
         max_length=31, choices=PostType.choices, default=PostType.OFFER
     )
-    title = models.CharField(max_length=255)
     description = models.TextField()
     # TODO: category (categories?)
+
+    # Sharing settings
+
+    # Whether the post is visible publicly.
+    public = models.BooleanField(default=False)
+
+    # Collective sharing
+    share_with_new_collectives_default = models.BooleanField(default=True)
+    # Memberships that share this post
+    shared_memberships = models.ManyToManyField(Membership, related_name="shared_posts")
+
+    # Friend sharing
+    share_with_new_friends_default = models.BooleanField(default=True)
+    # Friendships that share this post
+    shared_friendships = models.ManyToManyField(Friendship, related_name="shared_posts")
 
     def __str__(self) -> str:
         return self.title

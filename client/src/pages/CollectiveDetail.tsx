@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getOsolotAPI, type CollectiveDetail } from "../api/generated";
-import type { MembershipDetail } from "../api/generated";
+import {
+  getOsolotAPI,
+  PostType,
+  type CollectiveDetail,
+  type MembershipDetail,
+  type PostSummary,
+} from "../api/generated";
 import {
   fetchCollective,
   fetchMembership,
@@ -28,6 +33,20 @@ export default function CollectiveDetail() {
     null,
   );
   const [membershipLoading, setMembershipLoading] = useState(false);
+
+  const sharingDialogRef = useRef<HTMLDialogElement>(null);
+  const [sharingModalOpen, setSharingModalOpen] = useState(false);
+  const [sharingMyPosts, setSharingMyPosts] = useState<PostSummary[]>([]);
+  const [sharingPostsLoading, setSharingPostsLoading] = useState(false);
+  const [sharingLoadError, setSharingLoadError] = useState<string | null>(null);
+  const [sharingSelectedSlugs, setSharingSelectedSlugs] = useState<string[]>([]);
+  const [sharingSaveError, setSharingSaveError] = useState<string | null>(null);
+  const [sharingSaving, setSharingSaving] = useState(false);
+
+  const sharingSelectedSet = useMemo(
+    () => new Set(sharingSelectedSlugs),
+    [sharingSelectedSlugs],
+  );
 
   useEffect(() => {
     if (!slugOk) {
@@ -75,6 +94,51 @@ export default function CollectiveDetail() {
     })();
     return () => ac.abort();
   }, [user, slug, slugOk, collective]);
+
+  useEffect(() => {
+    const el = sharingDialogRef.current;
+    if (!el) return;
+    if (sharingModalOpen) {
+      if (!el.open) el.showModal();
+    } else if (el.open) {
+      el.close();
+    }
+  }, [sharingModalOpen]);
+
+  useEffect(() => {
+    if (!sharingModalOpen || !user || !slugOk) return;
+    const uname = user.username;
+    if (!uname) return;
+
+    let cancelled = false;
+    setSharingPostsLoading(true);
+    setSharingLoadError(null);
+    void (async () => {
+      try {
+        const [posts, m] = await Promise.all([
+          api.osolotServerApiPostsListMyPosts(),
+          api.osolotServerApiCollectiveMembershipsGetMembership(slug, uname),
+        ]);
+        if (cancelled) return;
+        setSharingMyPosts(posts);
+        setMyMembership(m);
+        const selected = (m.shared_posts ?? [])
+          .map((p) => p.slug)
+          .filter((s): s is string => Boolean(s));
+        setSharingSelectedSlugs(selected);
+      } catch {
+        if (!cancelled) {
+          setSharingLoadError("Could not load your posts or membership.");
+        }
+      } finally {
+        if (!cancelled) setSharingPostsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sharingModalOpen, user, slug, slugOk]);
 
   const isActiveMember = useMemo(() => {
     if (!user || !collective) return false;
@@ -142,6 +206,47 @@ export default function CollectiveDetail() {
         setLeaving(false);
       }
     })();
+  }
+
+  function toggleSharingSlug(postSlug: string) {
+    setSharingSelectedSlugs((prev) =>
+      prev.includes(postSlug)
+        ? prev.filter((s) => s !== postSlug)
+        : [...prev, postSlug],
+    );
+  }
+
+  function closeSharingModal() {
+    setSharingModalOpen(false);
+    setSharingSaveError(null);
+    setSharingLoadError(null);
+  }
+
+  async function saveSharing(e: FormEvent) {
+    e.preventDefault();
+    if (!user || !slugOk) return;
+    const uname = user.username;
+    if (!uname) return;
+    setSharingSaveError(null);
+    setSharingSaving(true);
+    try {
+      const m = await api.osolotServerApiCollectiveMembershipsUpdateMembership(
+        slug,
+        uname,
+        { shared_post_slugs: sharingSelectedSlugs },
+      );
+      setMyMembership(m);
+      closeSharingModal();
+    } catch {
+      setSharingSaveError("Could not update sharing. Try again.");
+    } finally {
+      setSharingSaving(false);
+    }
+  }
+
+  function memberDisplayName(u: PostSummary["owner"]) {
+    const parts = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
+    return parts || u.username;
   }
 
   function formatAppliedAt(iso: string | undefined | null) {
@@ -263,6 +368,98 @@ export default function CollectiveDetail() {
           </section>
 
           <section className="card">
+            <h2>Shared posts</h2>
+            <p className="muted small">
+              Offers and requests members have shared with this collective.
+            </p>
+            {(collective.shared_posts ?? []).length === 0 ? (
+              <p className="muted">No shared posts yet.</p>
+            ) : (
+              <ul className="shared-posts-list collective-shared-posts-list">
+                {(collective.shared_posts ?? []).map((p) => {
+                  const postSlug = p.slug ?? "";
+                  return (
+                    <li key={postSlug || p.title}>
+                      <div className="collective-shared-post-line">
+                        <span className="badge">{p.type ?? PostType.offer}</span>
+                        {postSlug ? (
+                          <Link
+                            to={`/posts/browse/${encodeURIComponent(postSlug)}`}
+                            className="collective-shared-post-title"
+                          >
+                            {p.title}
+                          </Link>
+                        ) : (
+                          <span>{p.title}</span>
+                        )}
+                      </div>
+                      <div className="muted small collective-shared-post-by">
+                        <Link
+                          to={`/users/${encodeURIComponent(p.owner.username)}`}
+                          state={{
+                            fromCollectiveSlug: collective.summary.slug,
+                          }}
+                          className="link"
+                        >
+                          {memberDisplayName(p.owner)}
+                        </Link>
+                        <span> · @{p.owner.username}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          {(isActiveMember || isPendingApplicant) &&
+          user &&
+          myMembership &&
+          !membershipLoading ? (
+            <section className="card">
+              <div className="member-section-header">
+                <h2>Your posts in this collective</h2>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    setSharingSaveError(null);
+                    setSharingModalOpen(true);
+                  }}
+                >
+                  Edit sharing
+                </button>
+              </div>
+              <p className="muted small">
+                Members can only see posts you explicitly share through this
+                membership.
+              </p>
+              {!myMembership.shared_posts ||
+              myMembership.shared_posts.length === 0 ? (
+                <p className="muted">
+                  You are not sharing any posts with this collective yet.
+                </p>
+              ) : (
+                <ul className="shared-posts-list">
+                  {myMembership.shared_posts.map((p) => {
+                    const ps = p.slug ?? "";
+                    return (
+                      <li key={ps || p.title}>
+                        <span className="badge">{p.type ?? PostType.offer}</span>
+                        {ps ? (
+                          <Link to={`/posts/${ps}/edit`}>{p.title}</Link>
+                        ) : (
+                          <span>{p.title}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          ) : null}
+
+          <section className="card">
             <div className="member-section-header">
               <h2>Members</h2>
               {canManageMembers ? (
@@ -304,6 +501,85 @@ export default function CollectiveDetail() {
               </ul>
             )}
           </section>
+
+          <dialog
+            ref={sharingDialogRef}
+            className="modal-dialog"
+            aria-labelledby="sharing-dialog-title"
+            onClose={closeSharingModal}
+          >
+            <form className="modal-dialog-form" onSubmit={(e) => void saveSharing(e)}>
+              <div className="modal-dialog-header">
+                <h2 id="sharing-dialog-title">Edit post sharing</h2>
+                <button
+                  type="button"
+                  className="modal-dialog-close as-button"
+                  aria-label="Close"
+                  onClick={closeSharingModal}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="modal-dialog-body">
+                <p className="muted small">
+                  Checked posts are visible to members of this collective through
+                  your membership.
+                </p>
+                {sharingLoadError ? (
+                  <p className="error">{sharingLoadError}</p>
+                ) : null}
+                {sharingSaveError ? (
+                  <p className="error">{sharingSaveError}</p>
+                ) : null}
+                {sharingPostsLoading ? (
+                  <p className="muted">Loading…</p>
+                ) : sharingMyPosts.length === 0 ? (
+                  <p className="muted">You have no posts yet.</p>
+                ) : (
+                  <div className="collective-pick-list">
+                    {sharingMyPosts.map((p) => {
+                      const postSlug = p.slug ?? "";
+                      if (!postSlug) return null;
+                      return (
+                        <label key={postSlug} className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={sharingSelectedSet.has(postSlug)}
+                            onChange={() => toggleSharingSlug(postSlug)}
+                          />
+                          <span className="badge">
+                            {p.type ?? PostType.offer}
+                          </span>
+                          <span>{p.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="modal-dialog-footer">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={sharingSaving || sharingPostsLoading}
+                  onClick={closeSharingModal}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={
+                    sharingSaving ||
+                    sharingPostsLoading ||
+                    Boolean(sharingLoadError)
+                  }
+                >
+                  {sharingSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </form>
+          </dialog>
         </>
       ) : null}
     </div>

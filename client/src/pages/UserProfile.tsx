@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import type { UserDetail, UserSummary } from "../api/generated";
+import type { AxiosError } from "axios";
+import { PostType, type UserDetail, type UserSummary } from "../api/generated";
 import { getOsolotAPI } from "../api/generated";
-import { useAuth } from "../auth/AuthContext";
 import "../App.css";
+import { useAuth } from "../auth/AuthContext";
 
 const api = getOsolotAPI();
+
+function detailMessage(err: unknown): string {
+  const ax = err as AxiosError<{ detail?: string }>;
+  const d = ax.response?.data?.detail;
+  return typeof d === "string" ? d : "Request failed.";
+}
 
 function displayName(u: UserSummary): string {
   const parts = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
@@ -24,6 +31,8 @@ export default function UserProfile() {
 
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [friendActionBusy, setFriendActionBusy] = useState(false);
+  const [friendActionMsg, setFriendActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!username.trim()) {
@@ -48,6 +57,21 @@ export default function UserProfile() {
       }
     })();
   }, [username, user, authLoading]);
+
+  async function addFriend() {
+    if (!detail) return;
+    setFriendActionBusy(true);
+    setFriendActionMsg(null);
+    setError(null);
+    try {
+      const res = await api.osolotServerApiUsersAddFriend(detail.summary.username);
+      setFriendActionMsg(res.message);
+    } catch (e) {
+      setError(detailMessage(e));
+    } finally {
+      setFriendActionBusy(false);
+    }
+  }
 
   const backHref = fromCollectiveSlug
     ? `/collectives/${fromCollectiveSlug}`
@@ -110,10 +134,23 @@ export default function UserProfile() {
       {detail ? (
         <>
           <section className="card">
-            <h2>{displayName(detail.summary)}</h2>
+            <div className="row space-between">
+              <h2>{displayName(detail.summary)}</h2>
+              {user?.username !== detail.summary.username ? (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={friendActionBusy}
+                  onClick={() => void addFriend()}
+                >
+                  {friendActionBusy ? "Adding…" : "Add friend"}
+                </button>
+              ) : null}
+            </div>
             <p className="muted user-profile-username">
               @{detail.summary.username}
             </p>
+            {friendActionMsg ? <p className="muted">{friendActionMsg}</p> : null}
             {detail.bio ? <p className="user-profile-bio">{detail.bio}</p> : null}
             {user?.username === detail.summary.username ? (
               <p className="muted">
@@ -150,6 +187,61 @@ export default function UserProfile() {
               </ul>
             )}
           </section>
+
+          <section className="card">
+            <h2>Mutual friends</h2>
+            {detail.mutual_friends.length === 0 ? (
+              <p className="muted">No mutual friends yet.</p>
+            ) : (
+              <ul className="list">
+                {detail.mutual_friends.map((u) => (
+                  <li key={u.username}>
+                    <Link
+                      to={`/users/${encodeURIComponent(u.username)}`}
+                      className="link"
+                    >
+                      {displayName(u)}{" "}
+                      <span className="muted small">@{u.username}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {user?.username !== detail.summary.username ? (
+            <section className="card">
+              <h2>Posts visible to you</h2>
+              <p className="muted small">
+                Offers and requests from this member that you can see (for example
+                through collectives or friendship).
+              </p>
+              {detail.posts_shared_with_me.length === 0 ? (
+                <p className="muted">
+                  None yet — you will see their posts here when sharing overlaps
+                  with your account.
+                </p>
+              ) : (
+                <ul className="shared-posts-list">
+                  {detail.posts_shared_with_me.map((p) => {
+                    const slug = p.slug ?? "";
+                    return (
+                      <li key={slug || p.title}>
+                        <span className="badge">{p.type ?? PostType.offer}</span>
+                        {slug ? (
+                          <Link to={`/posts/browse/${encodeURIComponent(slug)}`}>
+                            {p.title}
+                          </Link>
+                        ) : (
+                          <span>{p.title}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          ) : null}
         </>
       ) : null}
     </div>

@@ -22,6 +22,9 @@ export default function TopBar() {
         <NavLink to="/posts/browse" className="link">
           View posts
         </NavLink>
+        <NavLink to="/friends" className="link">
+          Friends
+        </NavLink>
         <NavLink to="/" className="link">
           My profile
         </NavLink>

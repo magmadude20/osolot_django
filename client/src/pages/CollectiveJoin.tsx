@@ -1,6 +1,10 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { CollectiveDetail } from "../api/generated";
+import type {
+  CollectiveDetail,
+  MembershipDetail,
+  PostSummary,
+} from "../api/generated";
 import {
   fetchCollective,
   fetchMembership,
@@ -28,7 +32,24 @@ export default function CollectiveJoin() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingEdit, setPendingEdit] = useState(false);
+  const [pendingMembership, setPendingMembership] =
+    useState<MembershipDetail | null>(null);
   const [membershipChecked, setMembershipChecked] = useState(false);
+
+  const [myPosts, setMyPosts] = useState<PostSummary[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [selectedSharedSlugs, setSelectedSharedSlugs] = useState<string[]>([]);
+
+  const selectedSlugSet = useMemo(
+    () => new Set(selectedSharedSlugs),
+    [selectedSharedSlugs],
+  );
+
+  function toggleSharedPost(slug: string) {
+    setSelectedSharedSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
+  }
 
   useEffect(() => {
     if (!slugOk) {
@@ -52,17 +73,20 @@ export default function CollectiveJoin() {
     if (!slugOk) return;
     if (!user) {
       setPendingEdit(false);
+      setPendingMembership(null);
       setMembershipChecked(true);
       return;
     }
     const viewerUsername = user.username;
     if (!viewerUsername) {
       setPendingEdit(false);
+      setPendingMembership(null);
       setMembershipChecked(true);
       return;
     }
     if (!collective) {
       setPendingEdit(false);
+      setPendingMembership(null);
       setMembershipChecked(false);
       return;
     }
@@ -73,18 +97,62 @@ export default function CollectiveJoin() {
         const m = await fetchMembership(slug, viewerUsername, ac.signal);
         if (m.summary.status === "pending") {
           setPendingEdit(true);
+          setPendingMembership(m);
           setApplicationMessage(m.application_message ?? "");
         } else {
+          setPendingMembership(null);
           navigate(backHref, { replace: true });
         }
       } catch {
         setPendingEdit(false);
+        setPendingMembership(null);
       } finally {
         if (!ac.signal.aborted) setMembershipChecked(true);
       }
     })();
     return () => ac.abort();
   }, [collective, user, slug, slugOk, navigate, backHref]);
+
+  useEffect(() => {
+    if (!user || !collective || !membershipChecked || !slugOk) return;
+
+    let cancelled = false;
+    setPostsLoading(true);
+    void api
+      .osolotServerApiPostsListMyPosts()
+      .then((posts) => {
+        if (cancelled) return;
+        setMyPosts(posts);
+        if (pendingEdit && pendingMembership) {
+          const slugs = (pendingMembership.shared_posts ?? [])
+            .map((p) => p.slug)
+            .filter((s): s is string => Boolean(s));
+          setSelectedSharedSlugs(slugs);
+        } else if (!pendingEdit) {
+          const slugs = posts
+            .filter(
+              (p) => p.sharing?.share_with_new_collectives_default === true,
+            )
+            .map((p) => p.slug)
+            .filter((s): s is string => Boolean(s));
+          setSelectedSharedSlugs(slugs);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPostsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    collective,
+    membershipChecked,
+    slugOk,
+    pendingEdit,
+    pendingMembership,
+  ]);
 
   const admissionIsApplication =
     collective?.summary.admission_type === "application";
@@ -103,12 +171,14 @@ export default function CollectiveJoin() {
           slug,
           viewerUsername,
           {
-          application_message: applicationMessage,
+            application_message: applicationMessage,
+            shared_post_slugs: selectedSharedSlugs,
           },
         );
       } else {
         await api.osolotServerApiCollectiveMembershipsJoinCollective(slug, {
           application_message: applicationMessage,
+          shared_post_slugs: selectedSharedSlugs,
         });
       }
       navigate(backHref, { replace: true });
@@ -216,6 +286,38 @@ export default function CollectiveJoin() {
               />
             </label>
           ) : null}
+
+          <fieldset className="fieldset">
+            <legend>Posts shared with this collective</legend>
+            <p className="muted small">
+              Choose which of your posts members can see through this membership.
+              Defaults follow each post’s “share with new collectives” setting.
+            </p>
+            {postsLoading ? (
+              <p className="muted">Loading your posts…</p>
+            ) : myPosts.length === 0 ? (
+              <p className="muted">You have no posts yet.</p>
+            ) : (
+              <div className="collective-pick-list">
+                {myPosts.map((p) => {
+                  const postSlug = p.slug ?? "";
+                  if (!postSlug) return null;
+                  return (
+                    <label key={postSlug} className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedSlugSet.has(postSlug)}
+                        onChange={() => toggleSharedPost(postSlug)}
+                      />
+                      <span className="badge">{p.type ?? "offer"}</span>
+                      <span>{p.title}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </fieldset>
+
           <div className="nav-links">
             <button type="submit" className="btn" disabled={submitting}>
               {submitting

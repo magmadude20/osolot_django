@@ -7,6 +7,7 @@ import {
   Status,
   type MembershipSummary,
   type PostDetail,
+  type UserSummary,
 } from "../api/generated";
 import { useAuth } from "../auth/AuthContext";
 import "../App.css";
@@ -47,6 +48,7 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
   const [collectives, setCollectives] = useState<
     { slug: string; name: string }[]
   >([]);
+  const [friends, setFriends] = useState<UserSummary[]>([]);
 
   const [type, setType] = useState<PostType>(PostType.offer);
   const [title, setTitle] = useState("");
@@ -54,7 +56,12 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
   const [isPublic, setIsPublic] = useState(false);
   const [shareWithNewCollectivesDefault, setShareWithNewCollectivesDefault] =
     useState(true);
+  const [shareWithNewFriendsDefault, setShareWithNewFriendsDefault] =
+    useState(true);
   const [selectedCollectiveSlugs, setSelectedCollectiveSlugs] = useState<
+    string[]
+  >([]);
+  const [selectedFriendUsernames, setSelectedFriendUsernames] = useState<
     string[]
   >([]);
 
@@ -64,11 +71,28 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
     () => new Set(selectedCollectiveSlugs),
     [selectedCollectiveSlugs],
   );
+  const selectedFriendsSet = useMemo(
+    () => new Set(selectedFriendUsernames),
+    [selectedFriendUsernames],
+  );
 
   function toggleCollective(slug: string) {
     setSelectedCollectiveSlugs((prev) =>
       prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
     );
+  }
+
+  function toggleFriend(username: string) {
+    setSelectedFriendUsernames((prev) =>
+      prev.includes(username)
+        ? prev.filter((u) => u !== username)
+        : [...prev, username],
+    );
+  }
+
+  function friendLabel(f: UserSummary): string {
+    const name = [f.first_name, f.last_name].filter(Boolean).join(" ").trim();
+    return name ? `${name} (${f.username})` : f.username;
   }
 
   useEffect(() => {
@@ -88,9 +112,13 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
       setError(null);
       setPageLoading(true);
       try {
-        const memberships = await api.osolotServerApiUsersListMyMemberships();
+        const [memberships, friendList] = await Promise.all([
+          api.osolotServerApiUsersListMyMemberships(),
+          api.osolotServerApiUsersListMyFriends(),
+        ]);
         if (cancelled) return;
         setCollectives(activeMembershipCollectives(memberships));
+        setFriends(friendList);
 
         if (mode === "edit" && postSlug) {
           const detail: PostDetail = await api.osolotServerApiPostsGetPost(
@@ -102,14 +130,23 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
           );
           setTitle(detail.title);
           setDescription(detail.description ?? "");
-          setIsPublic(Boolean(detail.public));
+          const sh = detail.sharing;
+          setIsPublic(Boolean(sh?.public));
           setShareWithNewCollectivesDefault(
-            detail.share_with_new_collectives_default ?? true,
+            sh?.share_with_new_collectives_default ?? true,
+          );
+          setShareWithNewFriendsDefault(
+            sh?.share_with_new_friends_default ?? true,
           );
           setSelectedCollectiveSlugs(
-            (detail.shared_collectives ?? [])
+            (sh?.shared_collectives ?? [])
               .map((c) => c.slug)
               .filter((s): s is string => Boolean(s)),
+          );
+          setSelectedFriendUsernames(
+            (sh?.shared_friends ?? [])
+              .map((u) => u.username)
+              .filter((u): u is string => Boolean(u)),
           );
         }
       } catch (e) {
@@ -138,7 +175,9 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
           description,
           public: isPublic,
           share_with_new_collectives_default: shareWithNewCollectivesDefault,
+          share_with_new_friends_default: shareWithNewFriendsDefault,
           shared_collective_slugs: selectedCollectiveSlugs,
+          shared_friend_usernames: selectedFriendUsernames,
         });
         navigate("/posts");
         return;
@@ -150,7 +189,9 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
         description,
         public: isPublic,
         share_with_new_collectives_default: shareWithNewCollectivesDefault,
+        share_with_new_friends_default: shareWithNewFriendsDefault,
         shared_collective_slugs: selectedCollectiveSlugs,
+        shared_friend_usernames: selectedFriendUsernames,
       });
       navigate("/posts");
     } catch (err) {
@@ -200,7 +241,8 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
       <div className="page-header">
         <h1>{mode === "new" ? "New post" : "Edit post"}</h1>
         <p className="muted">
-          Set visibility and choose which of your collectives can see this post.
+          Set visibility and choose which collectives and friends can see this
+          post.
         </p>
       </div>
 
@@ -260,6 +302,17 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
             Share with new collectives by default
           </label>
 
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={shareWithNewFriendsDefault}
+              onChange={(e) =>
+                setShareWithNewFriendsDefault(e.target.checked)
+              }
+            />
+            Share with new friends by default
+          </label>
+
           <fieldset className="fieldset">
             <legend>Share with collectives</legend>
             <p className="muted small">
@@ -278,6 +331,30 @@ export default function PostFormPage({ mode }: { mode: Mode }) {
                     />
                     <span>{c.name}</span>
                     <span className="muted small"> ({c.slug})</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+
+          <fieldset className="fieldset">
+            <legend>Share with friends</legend>
+            <p className="muted small">
+              Only users you are friends with are listed. This is separate from
+              collective sharing.
+            </p>
+            {friends.length === 0 ? (
+              <p className="muted">You have no friends yet.</p>
+            ) : (
+              <div className="collective-pick-list">
+                {friends.map((f) => (
+                  <label key={f.username} className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedFriendsSet.has(f.username)}
+                      onChange={() => toggleFriend(f.username)}
+                    />
+                    <span>{friendLabel(f)}</span>
                   </label>
                 ))}
               </div>

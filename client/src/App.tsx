@@ -1,22 +1,23 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
+import Layout from "./components/Layout.tsx";
+import CollectiveDetail from "./pages/CollectiveDetail.tsx";
+import CollectiveEdit from "./pages/CollectiveEdit.tsx";
+import CollectiveJoin from "./pages/CollectiveJoin.tsx";
+import CollectiveManageMember from "./pages/CollectiveManageMember.tsx";
+import CollectiveManageMembersList from "./pages/CollectiveManageMembersList.tsx";
+import CollectiveNew from "./pages/CollectiveNew.tsx";
+import CollectivesList from "./pages/CollectivesList.tsx";
 import ForgotPassword from "./pages/ForgotPassword.tsx";
-import ResetPassword from "./pages/ResetPassword.tsx";
-import VerifyEmail from "./pages/VerifyEmail.tsx";
+import Friends from "./pages/Friends.tsx";
 import Home from "./pages/Home.tsx";
 import Login from "./pages/Login.tsx";
-import CollectivesList from "./pages/CollectivesList.tsx";
-import CollectiveNew from "./pages/CollectiveNew.tsx";
-import CollectiveJoin from "./pages/CollectiveJoin.tsx";
-import CollectiveEdit from "./pages/CollectiveEdit.tsx";
-import CollectiveManageMembersList from "./pages/CollectiveManageMembersList.tsx";
-import CollectiveManageMember from "./pages/CollectiveManageMember.tsx";
-import CollectiveDetail from "./pages/CollectiveDetail.tsx";
-import UserProfile from "./pages/UserProfile.tsx";
+import PostFormPage from "./pages/PostFormPage.tsx";
 import Posts from "./pages/Posts.tsx";
 import PostsBrowse from "./pages/PostsBrowse.tsx";
-import PostFormPage from "./pages/PostFormPage.tsx";
-import Layout from "./components/Layout.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
+import UserProfile from "./pages/UserProfile.tsx";
+import VerifyEmail from "./pages/VerifyEmail.tsx";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/users/:username" element={<UserProfile />} />
+        <Route path="/friends" element={<Friends />} />
         <Route path="/collectives" element={<CollectivesList />} />
         <Route path="/collectives/new" element={<CollectiveNew />} />
         <Route

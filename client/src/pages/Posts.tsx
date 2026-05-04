@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
 import type { AxiosError } from "axios";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getOsolotAPI, PostType, type PostDetail, type PostSummary } from "../api/generated";
-import { useAuth } from "../auth/AuthContext";
 import "../App.css";
+import { useAuth } from "../auth/AuthContext";
 
 const api = getOsolotAPI();
 
@@ -98,7 +98,6 @@ export default function Posts() {
                     {p.title}
                   </button>
                   <div className="post-list-meta">
-                    {p.public ? <span className="badge public">public</span> : null}
                     {p.slug ? (
                       <span className="muted small">slug: {p.slug}</span>
                     ) : null}
@@ -126,18 +125,18 @@ export default function Posts() {
             <>
               <p className="muted">
                 <span className="badge">{preview.type ?? PostType.offer}</span>
-                {preview.public ? (
+                {preview.sharing?.public ? (
                   <span className="badge public">public</span>
                 ) : null}
               </p>
               <h3>{preview.title}</h3>
               <p>{preview.description}</p>
-              {preview.shared_collectives &&
-              preview.shared_collectives.length > 0 ? (
+              {preview.sharing?.shared_collectives &&
+              preview.sharing.shared_collectives.length > 0 ? (
                 <>
                   <h4>Shared with</h4>
                   <ul className="muted">
-                    {preview.shared_collectives.map((c) => (
+                    {preview.sharing.shared_collectives.map((c) => (
                       <li key={c.slug}>
                         {c.name}{" "}
                         <span className="small">({c.slug})</span>

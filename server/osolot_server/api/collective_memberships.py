@@ -6,7 +6,7 @@ from ninja.errors import HttpError
 
 from ..api_builders.detail_builders import membership_detail_for_viewer
 from ..api_builders.summary_builders import membership_summary
-from ..models import Collective, Membership
+from ..models import Collective, Membership, Post, User
 from ..permissions.collective_permissions import (
     can_manage_member_roles,
     can_manage_memberships,
@@ -23,6 +23,17 @@ from .schemas import (
 )
 
 collective_memberships_router = Router()
+
+
+# TODO: Fix this method
+def _set_shared_posts_for_membership(
+    user: User, membership: Membership, post_slugs: list[str]
+) -> None:
+    slug_set = set(post_slugs)
+    posts_to_share = list(Post.objects.filter(owner=user, slug__in=slug_set))
+    if len(posts_to_share) != len(slug_set):
+        raise HttpError(400, "One or more posts are invalid or not owned by you.")
+    membership.shared_posts.set(posts_to_share)
 
 
 # This method may not be needed, since getting a collective already gives all membership summaries.
@@ -54,22 +65,24 @@ def join_collective(request, collective_slug: str, data: JoinCollectiveRequest):
     if Membership.find_for(user, collective) is not None:
         raise HttpError(400, "Already a member or have a pending application.")
 
-    if collective.admission_type == Collective.AdmissionType.OPEN:
-        membership = Membership.objects.create(
-            collective=collective,
-            user=user,
-            status=Membership.Status.ACTIVE,
-            role=Membership.Role.MEMBER,
-            joined_at=timezone.now(),
-        )
-    else:
-        membership = Membership.objects.create(
-            collective=collective,
-            user=user,
-            status=Membership.Status.PENDING,
-            role=Membership.Role.MEMBER,
-            application_message=data.application_message,
-        )
+    with transaction.atomic():
+        if collective.admission_type == Collective.AdmissionType.OPEN:
+            membership = Membership.objects.create(
+                collective=collective,
+                user=user,
+                status=Membership.Status.ACTIVE,
+                role=Membership.Role.MEMBER,
+                joined_at=timezone.now(),
+            )
+        else:
+            membership = Membership.objects.create(
+                collective=collective,
+                user=user,
+                status=Membership.Status.PENDING,
+                role=Membership.Role.MEMBER,
+                application_message=data.application_message,
+            )
+        _set_shared_posts_for_membership(user, membership, data.shared_post_slugs)
     return membership_detail_for_viewer(membership, user)
 
 
@@ -126,7 +139,7 @@ def update_membership(
 
     updates = data.model_dump(exclude_unset=True)
 
-    if "application_message" in updates:
+    if (application_message := updates.get("application_message")) is not None:
         if actor.id != user.id:
             # Only pending applicants may update their own application message.
             raise HttpError(403, "Not allowed.")
@@ -134,23 +147,29 @@ def update_membership(
             raise HttpError(
                 400, "Only pending members can update their application message."
             )
-        user_membership.application_message = data.application_message or ""
+        user_membership.application_message = application_message
 
-    if "status" in updates:
+    if (shared_post_slugs := updates.get("shared_post_slugs")) is not None:
+        if actor.id != user.id:
+            # Only members can update the posts they share.
+            raise HttpError(403, "Not allowed.")
+        _set_shared_posts_for_membership(user, user_membership, shared_post_slugs)
+
+    if (status := updates.get("status")) is not None:
         if not membership_can_manage_members(actor_membership):
             raise HttpError(403, "Not allowed.")
         if (
             user_membership.status == Membership.Status.PENDING
-            and data.status == Membership.Status.ACTIVE
+            and status == Membership.Status.ACTIVE
         ):
             user_membership.joined_at = timezone.now()
-            user_membership.status = data.status
+            user_membership.status = status
             user_membership.approved_by = actor
         else:
             # Only allow updating status from PENDING -> ACTIVE (for now)
             pass
 
-    if "role" in updates:
+    if (role := updates.get("role")) is not None:
         if not can_manage_member_roles(actor_membership):
             raise HttpError(403, "Only admins can change roles.")
 
@@ -160,7 +179,7 @@ def update_membership(
             and collective_admins.first().id == user_membership.id
         ):
             raise HttpError(400, "Cannot demote the last admin.")
-        user_membership.role = data.role
+        user_membership.role = role
 
     # Handle race condition of two admins being demoted at the same time.
     # Probably overkill, and we're ignoring race conditions elsewhere, but whatever.
