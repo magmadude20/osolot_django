@@ -1,5 +1,13 @@
 # osolot: Open Source Organic Libraries of Things
 
+> [!WARNING]
+> This project is abandoned, and is broken at HEAD.
+> The git log shows the breaking change - syncing before then will give a working version.
+>
+> I'm spinning up a different (and hopefully better) version, but am leaving this around in case it's useful.
+> Please note that while I mostly vouch for the code quality under `server`, `client` is pretty much entirely
+> vibe-coded and should not be used as a reference.
+
 osolot helps people pool their resources.
 
 You can use my printer, and maybe I can borrow your wheelbarrow.
