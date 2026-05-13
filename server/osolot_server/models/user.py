@@ -1,9 +1,37 @@
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import OuterRef, Subquery
+
+from ..models.friendship import Friendship
+from ..models.membership import Membership
+
+
+class UserQuerySet(models.QuerySet):
+    def with_user_friendship_status(self, user):
+        return self.annotate(
+            friendship_status=Subquery(
+                Friendship.objects.filter(source=user, target=OuterRef("pk")).values(
+                    "status"
+                )
+            )
+        )
+
+    def with_collective_membership(self, collective):
+        membership = Membership.objects.filter(
+            user=OuterRef("pk"), collective=collective
+        )
+        return self.annotate(
+            member_status=Subquery(membership.values("status")),
+            member_role=Subquery(membership.values("role")),
+        )
+        # TODO: Not sure if needed
+        #.filter(member_status__isnull=False)
 
 
 class User(AbstractUser):
+    objects = UserQuerySet.as_manager()
+
     REQUIRED_FIELDS = ["email"]
 
     username_validator = RegexValidator(
@@ -27,9 +55,7 @@ class User(AbstractUser):
 
     bio = models.TextField(blank=True, default="", max_length=10_000)
 
-    friends = models.ManyToManyField(
-        "self", through="Friendship", symmetrical=False
-    )
+    friends = models.ManyToManyField("self", through="Friendship", symmetrical=False)
 
     class Meta:
         # Security note: To prevent edge cases, add a database-level check that emails

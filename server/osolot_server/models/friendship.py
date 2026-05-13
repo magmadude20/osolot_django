@@ -1,7 +1,4 @@
 from django.db import models
-from django.db.models import Q
-
-from .user import User
 
 
 # Models one-way friendship from `source` to `target`
@@ -11,24 +8,26 @@ class Friendship(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     source = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="friendships_as_source"
+        "User", on_delete=models.CASCADE, related_name="friendships_as_source"
     )
     target = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="friendships_as_target"
+        "User", on_delete=models.CASCADE, related_name="friendships_as_target"
     )
 
-    # An ACTIVE friendship MUST be bidirectional (users are friends with each other).
-    # A PENDING friendship MUST be one-way (one user sends a request to the other).
+    # All friendships MUST have both source->target and target->source records.
+    # ACTIVE friendships MUST both be ACTIVE.
+    # A PENDING_SENT source->target MUST have a PENDING_RECEIVED target->source record.
     # This _may_ be possible to model as a meta constraint, but for now just enforce
     # it in the code.
     class FriendshipStatus(models.TextChoices):
         ACTIVE = "active"
-        REQUESTED = "requested"
+        PENDING_SENT = "pending_sent"
+        PENDING_RECEIVED = "pending_received"
 
     status = models.CharField(
         max_length=31,
         choices=FriendshipStatus.choices,
-        default=FriendshipStatus.REQUESTED,
+        default=FriendshipStatus.PENDING_SENT,
     )
 
     class Meta:

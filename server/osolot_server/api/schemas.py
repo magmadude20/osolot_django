@@ -1,6 +1,8 @@
+from enum import Enum
+
 from ninja import Field, ModelSchema, Schema
 
-from ..models import Collective, Membership, Post, User
+from ..models import Collective, Friendship, Membership, Post, User
 
 ### Common
 
@@ -13,6 +15,8 @@ class MessageOut(Schema):
 
 
 class UserSummary(ModelSchema):
+    friendship_status: Friendship.FriendshipStatus | None = None
+
     class Meta:
         model = User
         fields = ["username", "first_name", "last_name"]
@@ -20,6 +24,9 @@ class UserSummary(ModelSchema):
 
 
 class CollectiveSummary(ModelSchema):
+    membership_status: Membership.Status | None = None
+    membership_role: Membership.Role | None = None
+
     class Meta:
         model = Collective
         fields = ["slug", "name", "description", "visibility", "admission_type"]
@@ -91,6 +98,8 @@ class PostDetail(ModelSchema):
 class UserDetail(Schema):
     summary: UserSummary
     bio: str | None = None
+    friendship_status: Friendship.FriendshipStatus | None = None
+
     # List of collectives in common with the viewer.
     mutual_collectives: list[CollectiveSummary]
     # List of friends in common with the viewer.

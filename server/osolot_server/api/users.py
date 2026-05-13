@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -7,7 +9,7 @@ from ninja.errors import HttpError
 
 from ..api_builders.detail_builders import user_detail_for_viewer
 from ..api_builders.exceptions import validation_error_to_http_error
-from ..api_builders.summary_builders import membership_summary
+from ..api_builders.summary_builders import membership_summary, user_summary
 from ..models import Friendship, Membership
 from ..security import JWTAuth, get_optional_user
 from .schemas import (
@@ -18,6 +20,8 @@ from .schemas import (
     UserProfile,
     UserSummary,
 )
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -92,7 +96,7 @@ def list_my_friends(request):
     friends = Friendship.objects.filter(
         source=user, status=Friendship.FriendshipStatus.ACTIVE
     ).select_related("target")
-    return [UserSummary.from_orm(f.target) for f in friends]
+    return [user_summary(f.target) for f in friends]
 
 
 @users_router.get(
@@ -101,9 +105,10 @@ def list_my_friends(request):
 def list_my_friend_requests(request):
     user = request.auth
     friend_requests = Friendship.objects.filter(
-        target=user, status=Friendship.FriendshipStatus.REQUESTED
-    ).select_related("source")
-    return [UserSummary.from_orm(f.source) for f in friend_requests]
+        source=user, status=Friendship.FriendshipStatus.PENDING_RECEIVED
+    ).select_related("target")
+    # Performance: This might re-fetch target for each request?
+    return [user_summary(f.target) for f in friend_requests]
 
 
 @users_router.get("/{username}", response=UserDetail, tags=["users"])
@@ -131,35 +136,49 @@ def add_friend(request, username: str):
     if source == target:
         raise HttpError(400, "You cannot add yourself as a friend.")
 
-    existing_friendship = Friendship.objects.filter(
-        source=source, target=target
-    ).first()
-    if existing_friendship is not None:
-        if existing_friendship.status == Friendship.FriendshipStatus.REQUESTED:
-            raise HttpError(400, "You've already sent a friend request to this user.")
-        # Status is ACTIVE
-        raise HttpError(400, "You're already friends!")
+    source_to_target = Friendship.objects.filter(source=source, target=target).first()
 
-    # If `target` has a PENDING request, accept it.
-    target_request = Friendship.objects.filter(source=target, target=source).first()
-    if target_request is not None:
-        # 1. Update the target->source friendship to ACTIVE
-        # 2. Create an ACTIVE source->target friendship
+    if source_to_target is None:
+        # Create a PENDING_SENT source->target and PENDING_RECEIVED target->source friendships
         with transaction.atomic():
-            target_request.status = Friendship.FriendshipStatus.ACTIVE
-            target_request.save()
             Friendship.objects.create(
-                source=source, target=target, status=Friendship.FriendshipStatus.ACTIVE
+                source=source,
+                target=target,
+                status=Friendship.FriendshipStatus.PENDING_SENT,
+            )
+            Friendship.objects.create(
+                source=target,
+                target=source,
+                status=Friendship.FriendshipStatus.PENDING_RECEIVED,
             )
         # TODO: Send notification to target
-        return MessageOut(message="Friend request accepted.")
-    else:
-        # Create a PENDING source->target friendship
-        Friendship.objects.create(
-            source=source, target=target, status=Friendship.FriendshipStatus.REQUESTED
-        )
-        # TODO: Send notification to target
         return MessageOut(message="Friend request sent.")
+
+    # Handle existing frienship cases.
+    if source_to_target.status == Friendship.FriendshipStatus.ACTIVE:
+        raise HttpError(400, "You're already friends!")
+    if source_to_target.status == Friendship.FriendshipStatus.PENDING_SENT:
+        raise HttpError(400, "You've already sent a friend request to this user.")
+
+    # Accept PENDING_RECEIVED request
+
+    assert source_to_target.status == Friendship.FriendshipStatus.PENDING_RECEIVED
+
+    target_to_source = Friendship.objects.filter(source=target, target=source).first()
+    assert (
+        target_to_source is not None
+        and target_to_source.status == Friendship.FriendshipStatus.PENDING_SENT
+    )
+
+    # Update both friendships to be ACTIVE
+    with transaction.atomic():
+        target_to_source.status = Friendship.FriendshipStatus.ACTIVE
+        target_to_source.save()
+        source_to_target.status = Friendship.FriendshipStatus.ACTIVE
+        source_to_target.save()
+
+    # TODO: Send notification to target
+    return MessageOut(message="Friend request accepted.")
 
 
 @users_router.delete(
@@ -177,21 +196,15 @@ def remove_friend(request, username: str):
     # Delete() returns a tuple of (number of rows deleted, row deletion details)
     # See: https://docs.djangoproject.com/en/6.0/topics/db/queries/#deleting-objects
     with transaction.atomic():
-        source_deleted_count, _ = Friendship.objects.filter(
+        source_deleted, _ = Friendship.objects.filter(
             source=source, target=target
         ).delete()
 
-        target_deleted_count, _ = Friendship.objects.filter(
+        target_deleted, _ = Friendship.objects.filter(
             source=target, target=source
         ).delete()
 
-    if source_deleted_count == 0 and target_deleted_count == 0:
+    if source_deleted == 0 and target_deleted == 0:
         return MessageOut(message="Friend not found.")
-
-    if target_deleted_count == 0:
-        return MessageOut(message="Removed your friend request.")
-
-    if source_deleted_count == 0:
-        return MessageOut(message="Removed their friend request.")
 
     return MessageOut(message="Friend removed.")

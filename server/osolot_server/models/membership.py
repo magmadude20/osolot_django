@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from django.db import models
 
-from .collective import Collective
 from .user import User
 
 
 class MembershipQuerySet(models.QuerySet):
-    def for_collective(self, collective: Collective):
+    def for_collective(self, collective):
         return self.filter(collective=collective)
 
     def for_collective_slugs(self, collective_slugs):
@@ -23,7 +22,7 @@ class MembershipQuerySet(models.QuerySet):
 class Membership(models.Model):
     objects = MembershipQuerySet.as_manager()
 
-    collective = models.ForeignKey(Collective, on_delete=models.CASCADE)
+    collective = models.ForeignKey("Collective", on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     # Timestamps

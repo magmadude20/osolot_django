@@ -62,6 +62,14 @@ export interface PostSettings {
   type?: PostType;
 }
 
+export interface PostSharingDetail {
+  public?: boolean;
+  share_with_new_collectives_default?: boolean;
+  share_with_new_friends_default?: boolean;
+  shared_collectives: CollectiveSummary[];
+  shared_friends: UserSummary[];
+}
+
 export type PostDetailSharing = PostSharingDetail | null;
 
 export interface PostDetail {
@@ -86,6 +94,16 @@ export type UpdateMembershipRequestStatus = Status | null;
 /**
  * Requesting user only.
  */
+export type UpdateMembershipRequestSharedPostSlugs = string[] | null;
+
+/**
+ * Admin only.
+ */
+export type UpdateMembershipRequestRole = Role | null;
+
+/**
+ * Requesting user only.
+ */
 export type UpdateMembershipRequestApplicationMessage = string | null;
 
 export interface UpdateMembershipRequest {
@@ -94,7 +112,7 @@ export interface UpdateMembershipRequest {
   /** Admin only. */
   role?: UpdateMembershipRequestRole;
   /** Requesting user only. */
-  shared_post_slugs?: string[];
+  shared_post_slugs?: UpdateMembershipRequestSharedPostSlugs;
   /** Admin and moderators only. */
   status?: UpdateMembershipRequestStatus;
 }
@@ -147,12 +165,22 @@ export interface CollectiveSettings {
 export interface CollectiveDetail {
   application_question: string;
   members: MembershipSummary[];
+  shared_posts: PostSummary[];
   summary: CollectiveSummary;
-  /** Posts shared into this collective (from active members), visible to the viewer. */
-  shared_posts?: PostSummary[];
 }
 
+export type UserDetailFriendshipStatus = FriendshipStatus | null;
+
 export type UserDetailBio = string | null;
+
+export interface UserDetail {
+  bio?: UserDetailBio;
+  friendship_status?: UserDetailFriendshipStatus;
+  mutual_collectives: CollectiveSummary[];
+  mutual_friends: UserSummary[];
+  posts_shared_with_me: PostSummary[];
+  summary: UserSummary;
+}
 
 export interface PostSharingSummary {
   public?: boolean;
@@ -173,13 +201,15 @@ export interface PostSummary {
   type?: string;
 }
 
-export interface UserDetail {
-  bio?: UserDetailBio;
-  mutual_collectives: CollectiveSummary[];
-  mutual_friends: UserSummary[];
-  posts_shared_with_me: PostSummary[];
-  summary: UserSummary;
-}
+export type FriendshipStatus = typeof FriendshipStatus[keyof typeof FriendshipStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const FriendshipStatus = {
+  active: 'active',
+  pending_sent: 'pending_sent',
+  pending_received: 'pending_received',
+} as const;
 
 export type UserSummaryLastName = string | null;
 
@@ -193,14 +223,6 @@ export interface UserSummary {
    * @maxLength 150
    */
   username: string;
-}
-
-export interface PostSharingDetail {
-  public?: boolean;
-  share_with_new_collectives_default?: boolean;
-  share_with_new_friends_default?: boolean;
-  shared_collectives: CollectiveSummary[];
-  shared_friends: UserSummary[];
 }
 
 export type Status = typeof Status[keyof typeof Status];
@@ -221,11 +243,6 @@ export const Role = {
   moderator: 'moderator',
   member: 'member',
 } as const;
-
-/**
- * Admin only.
- */
-export type UpdateMembershipRequestRole = Role | null;
 
 export interface CollectiveSummary {
   admission_type?: string;

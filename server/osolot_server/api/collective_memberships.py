@@ -9,6 +9,7 @@ from ..api_builders.summary_builders import membership_summary
 from ..models import Collective, Membership, Post, User
 from ..permissions.collective_permissions import (
     can_manage_member_roles,
+    can_manage_members,
     can_manage_memberships,
     membership_can_manage_members,
     user_visible_collective_members,
@@ -201,28 +202,42 @@ def update_membership(
     tags=["memberships"],
 )
 def delete_membership(request, collective_slug: str, username: str):
-    user_membership = Membership.find_for_username_and_collective_slug(
-        username, collective_slug
+    actor = request.auth
+
+    actor_membership = (
+        Membership.objects.select_related("collective")
+        .filter(user=actor, collective__slug=collective_slug)
+        .first()
+    )
+    if actor_membership is None:
+        raise HttpError(403, "Not allowed.")
+
+    if actor.username != username and not can_manage_members(
+        actor_membership.status, actor_membership.role
+    ):
+        raise HttpError(403, "Not allowed.")
+
+    user_membership = (
+        Membership.objects.select_related("collective")
+        .filter(user__username=username, collective__slug=collective_slug)
+        .first()
     )
     if user_membership is None:
         raise HttpError(404, "Membership not found.")
-    collective = user_membership.collective
 
-    actor = request.auth
-
-    if actor.username != username and not can_manage_memberships(actor, collective):
-        raise HttpError(403, "Not allowed.")
-
-    num_admins = Membership.objects.for_collective(collective).admins().count()
-    if user_membership.role == Membership.Role.ADMIN and num_admins <= 1:
-        raise HttpError(400, "Cannot remove the last admin.")
+    if user_membership.role == Membership.Role.ADMIN:
+        collective_admins = Membership.objects.filter(
+            collective__slug=collective_slug, role=Membership.Role.ADMIN
+        ).count()
+        if collective_admins.count() <= 1:
+            raise HttpError(400, "Cannot remove the last admin.")
 
     # Handle race condition of two admins leaving at the same time.
     # Probably overkill, and we're ignoring race conditions elsewhere, but whatever.
     with transaction.atomic():
         user_membership.delete()
         if not Membership.objects.filter(
-            collective=collective,
+            collective__slug=collective_slug,
             status=Membership.Status.ACTIVE,
             role=Membership.Role.ADMIN,
         ).exists():

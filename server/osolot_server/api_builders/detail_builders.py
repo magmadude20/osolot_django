@@ -89,9 +89,11 @@ def collective_detail_for_viewer(
 
 def user_detail_for_viewer(user: User, viewer: User | None) -> UserDetail:
     # Future performance: Fetch mutual collectives and mutual friends in parallel.
+    friendship = Friendship.objects.filter(source=viewer, target=user).first()
     return UserDetail(
         summary=user_summary(user),
         bio=user.bio,
+        friendship_status=friendship.status if friendship else None,
         mutual_collectives=[
             collective_summary(c) for c in mutual_collectives_with_user(viewer, user)
         ],
